@@ -1,0 +1,22 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+pandas = "*"
+torch = "==1.1.0"
+torchvision = "<0.4.0"
+Pillow = "*"
+tqdm = "*"
+scikit-learn = "*"
+shape-commentator = "*"
+tb-nightly = "==1.14.0a20190614"
+future = "*"
+numpy = "<1.17"
+tensorflow = "*"
+
+[requires]
+python_version = "3.7"
