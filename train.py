@@ -121,7 +121,7 @@ class WeatherTransfer(object):
         self.seq_labels = get_sequential_labels(self.num_classes, args.batch_size)
         self.scalar_dict = {}
         self.image_dict = {}
-        self.shift_lmda = (lambda a,b): (1.-self.lmda)*a+self.lmda*b
+        self.shift_lmda = lambda a,b: (1.-self.lmda)*a+self.lmda*b
 
 
     def update_inference(self, images, labels):
