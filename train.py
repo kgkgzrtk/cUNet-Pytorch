@@ -135,7 +135,8 @@ class WeatherTransfer(object):
         g_loss_adv = gen_hinge(fake_d_out)       # Adversarial loss
         g_loss_l1 = l1_loss(fake_out, images) #TODO seg_loss
         g_loss_w = pred_loss(fake_c_out, labels)   # Weather prediction
-        g_loss = g_loss_adv #+ self.shift_lmda(g_loss_l1, g_loss_w)
+
+        g_loss = g_loss_adv + self.shift_lmda(g_loss_l1, g_loss_w)
         
         g_loss.backward()
         self.g_opt.step()
