@@ -19,7 +19,7 @@ from torchvision.utils import save_image, make_grid
 from ops import *
 from utils import ImageLoader, _collate_fn
 from cunet import Conditional_UNet
-from disc import Discriminator
+from disc import SNDisc
 from sampler import ImbalancedDatasetSampler
 
 parser = argparse.ArgumentParser()
@@ -29,7 +29,7 @@ parser.add_argument('--gpu', type=str, default='0')
 parser.add_argument('--save_dir', type=str, default='cp')
 parser.add_argument('--out_dir', type=str, default='results')
 parser.add_argument('--pkl_path', type=str, default='data_pkl/sepalated_mini_data.pkl')
-parser.add_argument('--classifier_path', type=str, default='cp/resnet101_5.pt')
+parser.add_argument('--classifier_path', type=str, default='cp/classifier/resnet101_95.pt')
 parser.add_argument('--input_size', type=int, default=256)
 parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--num_epoch', type=int, default=100)
@@ -42,6 +42,7 @@ class WeatherTransfer(object):
 
         self.args = args
         self.batch_size = args.batch_size
+        self.global_step = 0
 
         os.makedirs(os.path.join(args.out_dir, args.name), exist_ok=True)
         os.makedirs(os.path.join(args.save_dir, args.name), exist_ok=True)
@@ -92,16 +93,16 @@ class WeatherTransfer(object):
         
         # Models
         self.inference = Conditional_UNet(num_classes=self.num_classes)
-        self.discriminator = Discriminator(num_classes=self.num_classes)
+        self.discriminator = SNDisc(num_classes=self.num_classes)
         self.classifier = torch.load(args.classifier_path)
-        self.classifier.eval()
+        #self.classifier.eval()
 
         #Models to CUDA
         [i.cuda() for i in [self.inference, self.discriminator, self.classifier]]
 
         # Optimizer
-        self.g_opt = torch.optim.Adam(self.inference.parameters(), lr=args.lr, weight_decay=1e-4)
-        self.d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=args.lr, weight_decay=1e-4)
+        self.g_opt = torch.optim.Adam(self.inference.parameters(), lr=args.lr, betas=(0.0, 0.9))
+        self.d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=args.lr, betas=(0.0, 0.9))
 
         self.train_loader = torch.utils.data.DataLoader(
                 self.train_set,
@@ -130,69 +131,71 @@ class WeatherTransfer(object):
         fake_d_out = self.discriminator(fake_out, labels)
 
         # Calc Generator Loss
-        g_loss_adv = adv_loss(fake_d_out, self.real)       # Adversarial loss
+        g_loss_adv = gen_hinge(fake_d_out)       # Adversarial loss
         g_loss_l1 = l1_loss(fake_out, images) #TODO seg_loss
         g_loss_w = pred_loss(fake_c_out, labels)   # Weather prediction
-        g_loss = g_loss_adv + (1 - self.lmda)*g_loss_l1 + self.lmda*g_loss_w
+        g_loss = g_loss_adv + (1. - self.lmda)*g_loss_l1 + self.lmda*g_loss_w
+        
         g_loss.backward()
         self.g_opt.step()
-
+        
         self.scalar_dict.update({
-                'losses/g_loss/train':  g_loss.item(),
-                'losses/g_loss_adv/train': g_loss_adv.item(),
-                'losses/g_loss_l1/train': g_loss_l1.item(),
-                'losses/g_loss_w/train': g_loss_w.item(),
-                }) 
+            'losses/g_loss/train':  g_loss.item(),
+            'losses/g_loss_adv/train': g_loss_adv.item(),
+            'losses/g_loss_l1/train': g_loss_l1.item(),
+            'losses/g_loss_w/train': g_loss_w.item(),
+            'variables/lmda': self.lmda
+            }) 
 
         self.image_dict.update({
-                'images/train': images,
-                'labels/train': labels,
-                'outputs/train': fake_out,
-                })
+            'images/train': images,
+            'outputs/train': fake_out,
+            })
 
     def update_discriminator(self, images, labels):
 
         #--- UPDATE(Discriminator) ---#
         self.d_opt.zero_grad()
+
         #for real
-        real_c_out = self.classifier(images)
-        real_d_out = self.discriminator(images, real_c_out)
-        d_real_loss = adv_loss(real_d_out, self.real)
+        #real_c_out = self.classifier(images)
+        #pred_labels = torch.argmax(real_c_out, dim=1)
+        #real_d_out = self.discriminator(images, pred_labels)
+        real_d_out = self.discriminator(images, labels)
+
         #for fake
         fake_out = self.inference(images, labels)
         fake_d_out = self.discriminator(fake_out.detach(), labels)
-        d_fake_loss = adv_loss(fake_d_out, self.fake)
+        
         #update
-        d_loss = d_real_loss + d_fake_loss
+        d_loss = dis_hinge(fake_d_out, real_d_out)
         d_loss.backward()
         self.d_opt.step()
         
         self.scalar_dict.update({
-            'losses/d_loss/train': d_loss.item(),
-            'losses/d_loss_real':   d_real_loss.item(),
-            'losses/d_loss_fake':   d_fake_loss.item()
+            'losses/d_loss': d_loss.item()
             })
 
     def eval(self, k=10):
-        #--- EVALUATION ---#
         g_loss_ = []
         g_loss_adv_ = []
         g_loss_l1_ = []
         g_loss_w_ = []
         input_li = []
         fake_out_li = []
-        with torch.no_grad():
-            for i, data_ in enumerate(self.test_loader):
-                if i>=k: break
-                images, labels = (d.to('cuda') for d in data_)
+        for i, data_ in enumerate(self.test_loader):
+            if i>k: break
+            images, labels = (d.to('cuda') for d in data_)
+            with torch.no_grad():
                 fake_out_ = self.inference(images, self.seq_labels)
                 fake_c_out_ = self.classifier(fake_out_)
                 fake_d_out_ = self.discriminator(fake_out_, self.seq_labels)
-                input_li.append(images)
-                fake_out_li.append(fake_out_)
-                g_loss_adv_.append(adv_loss(fake_d_out_, self.real).item())
-                g_loss_l1_.append(l1_loss(fake_out_, images).item())
-                g_loss_w_.append(pred_loss(fake_c_out_, self.seq_labels).item())
+
+            input_li.append(images)
+            fake_out_li.append(fake_out_)
+            g_loss_adv_.append(adv_loss(fake_d_out_, self.real).item())
+            g_loss_l1_.append(l1_loss(fake_out_, images).item())
+            g_loss_w_.append(pred_loss(fake_c_out_, self.seq_labels).item())
 
         #--- WRITING SUMMARY ---#
         self.scalar_dict.update({
@@ -202,7 +205,7 @@ class WeatherTransfer(object):
                 }) 
 
         self.image_dict.update({
-                'inputs/test': input_li[0],
+                'images/test': input_li[0],
                 'labels/test': self.seq_labels,
                 'outputs/test': fake_out_li[0],
                 })
@@ -210,26 +213,32 @@ class WeatherTransfer(object):
     def update_summary(self):
         # Summarize
         for k, v in self.scalar_dict.items():
-            self.writer.add_scalar(k, v, self.epoch)
+            self.writer.add_scalar(k, v, self.global_step)
         for k, v in self.image_dict.items():
-            grid = make_grid(v, nrow=4,
-                    normalize=True, scale_each=True)
-            self.writer.add_image(k, grid, self.epoch)
+            grid = make_grid(v, nrow=4, normalize=True, scale_each=True)
+            self.writer.add_image(k, grid, self.global_step)
 
     def train(self):
+        args = self.args
 
         #train setting 
+        eval_per_step = 100
+        display_per_step = 100
         eval_per_epoch = 1
-        display_per_iter = 10
-        output_per_epoch = 1
+        display_per_epoch = 1
         save_per_epoch = 5
 
-        tqdm_iter = trange(args.num_epoch, desc='Training', leave=True)
-        for epoch in range(args.num_epoch):
-            self.epoch = epoch
-            for i, data in tqdm(enumerate(self.train_loader)):
+        self.all_step = args.num_epoch*len(self.train_set)//self.batch_size
 
-                self.global_step = (i+1)*(epoch*1)
+        tqdm_iter = trange(args.num_epoch, desc='Training', leave=True)
+        for epoch in tqdm_iter:
+            self.epoch = epoch
+            for i, data in enumerate(self.train_loader):
+
+                self.global_step += 1
+
+                tqdm_iter.set_description('Training [ {} step ]'.format(self.global_step))
+                self.lmda = self.global_step/self.all_step
 
                 # Inputs
                 images, _ = (d.to('cuda') for d in data)
@@ -237,16 +246,18 @@ class WeatherTransfer(object):
 
                 if images.size(0)!=self.batch_size: continue
 
-                self.update_inference(images, rand_labels)
                 self.update_discriminator(images, rand_labels)
+                self.update_inference(images, rand_labels)
 
-
+            
+                ''' 
+                #--- EVALUATION ---#
+                if self.global_step % eval_per_step == 0:
+                    self.eval()
+                '''
                 #--- UPDATE SUMMARY ---#
-                if i % display_per_iter == 0:
+                if self.global_step % display_per_step == 0:
                     self.update_summary()
-
-            if epoch % eval_per_epoch == 0:
-                self.eval()
 
             if epoch % save_per_epoch == 0:
                 out_path = os.path.join(args.save_dir, args.name, (args.name+'_e{:04d}.pt').format(epoch))

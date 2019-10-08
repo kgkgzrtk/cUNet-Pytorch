@@ -24,7 +24,7 @@ class ConditionalNorm(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         self.bn = nn.BatchNorm2d(in_channel, affine=False)
-        self.embed = nn.Linear(num_classes, in_channel* 2)
+        self.embed = nn.Embedding(num_classes, in_channel*2)
         self.embed.weight.data[:, :in_channel] = 1
         self.embed.weight.data[:, in_channel:] = 0
 
