@@ -121,7 +121,7 @@ class WeatherTransfer(object):
         self.seq_labels = get_sequential_labels(self.num_classes, args.batch_size)
         self.scalar_dict = {}
         self.image_dict = {}
-        self.shift_lmda = (lambda a,b): (1.-self.lmda)*a+self.lmda*b
+        self.shift_lmda = lambda a,b: (1.-self.lmda)*a+self.lmda*b
 
 
     def update_inference(self, images, labels):
@@ -164,15 +164,15 @@ class WeatherTransfer(object):
         pred_labels = torch.argmax(real_c_out.detach(), dim=1)
 
         real_d_out_same = self.discriminator(images, labels)
-        real_d_out_pred = self.discriminator(images, pred_labels)
-        real_d_out = self.shift_lmda(real_d_out_same, real_d_out_pred)
+        #real_d_out_pred = self.discriminator(images, pred_labels)
+        #real_d_out = self.shift_lmda(real_d_out_same, real_d_out_pred)
 
         #for fake
         fake_out = self.inference(images, labels)
         fake_d_out = self.discriminator(fake_out.detach(), labels)
         
         #update
-        d_loss = dis_hinge(fake_d_out, real_d_out)
+        d_loss = dis_hinge(fake_d_out, real_d_out_same)
         d_loss.backward()
         self.d_opt.step()
         
