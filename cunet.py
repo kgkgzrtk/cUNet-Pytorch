@@ -26,6 +26,7 @@ class Conditional_UNet(nn.Module):
         self.dconv_up1 = double_conv(64 + 128, 64)
         
         self.conv_last = nn.Conv2d(64, 3, 1)
+        self.activation = nn.Tanh()
 
         
         
@@ -67,5 +68,5 @@ class Conditional_UNet(nn.Module):
         
         out = self.conv_last(x)
         
-        return out
+        return self.activation(out)
 

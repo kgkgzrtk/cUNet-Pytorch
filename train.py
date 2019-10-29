@@ -63,7 +63,8 @@ class WeatherTransfer(object):
                     saturation=0.3,
                     hue=0  
                 ),
-            transforms.ToTensor()
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
         test_transform = transforms.Compose([
             transforms.Resize((args.input_size,)*2),
@@ -95,7 +96,7 @@ class WeatherTransfer(object):
         self.inference = Conditional_UNet(num_classes=self.num_classes)
         self.discriminator = SNDisc(num_classes=self.num_classes)
         self.classifier = torch.load(args.classifier_path)
-        #self.classifier.eval()
+        self.classifier.eval()
 
         #Models to CUDA
         [i.cuda() for i in [self.inference, self.discriminator, self.classifier]]
@@ -134,7 +135,7 @@ class WeatherTransfer(object):
         # Calc Generator Loss
         g_loss_adv = gen_hinge(fake_d_out)       # Adversarial loss
         g_loss_l1 = l1_loss(fake_out, images) #TODO seg_loss
-        g_loss_w = pred_loss(fake_c_out, labels)   # Weather prediction
+        g_loss_w = pred_loss(fake_c_out.detach(), labels)   # Weather prediction
 
         g_loss = g_loss_adv + self.shift_lmda(g_loss_l1, g_loss_w)
         
@@ -163,8 +164,8 @@ class WeatherTransfer(object):
         real_c_out = self.classifier(images)
         pred_labels = torch.argmax(real_c_out.detach(), dim=1)
 
-        real_d_out_same = self.discriminator(images, labels)
-        #real_d_out_pred = self.discriminator(images, pred_labels)
+        #real_d_out_same = self.discriminator(images, labels)
+        real_d_out_pred = self.discriminator(images, pred_labels)
         #real_d_out = self.shift_lmda(real_d_out_same, real_d_out_pred)
 
         #for fake
@@ -172,7 +173,7 @@ class WeatherTransfer(object):
         fake_d_out = self.discriminator(fake_out.detach(), labels)
         
         #update
-        d_loss = dis_hinge(fake_d_out, real_d_out_same)
+        d_loss = dis_hinge(fake_d_out, real_d_out_pred)
         d_loss.backward()
         self.d_opt.step()
         
