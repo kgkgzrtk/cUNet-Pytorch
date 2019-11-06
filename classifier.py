@@ -47,11 +47,13 @@ train_transform = transforms.Compose([
             saturation=0.3,
             hue=0  
         ),
-    transforms.ToTensor()
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 test_transform = transforms.Compose([
     transforms.Resize(args.input_size),
     transforms.ToTensor()
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 transform = {'train': train_transform, 'test': test_transform}
 

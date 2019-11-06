@@ -45,16 +45,16 @@ class SNDisc(nn.Module):
         init.xavier_uniform_(self.embed.weight)
         
     def forward(self, x, c=None):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = torch.sum(x, [2,3]) # global pool
+        c1 = self.conv1(x)
+        c2 = self.conv2(c1)
+        c3 = self.conv3(c2)
+        c4 = self.conv4(c3)
+        x = torch.sum(c4, [2,3]) # global pool
         out = self.l(x)
         e_c = self.embed(c)
         if c is not None:
             out += torch.sum(e_c * x, dim=1, keepdim=True)
-        return out
+        return [out, c1, c2, c3, c4]
 
 class CBNDisc(nn.Module):
     

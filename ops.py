@@ -20,6 +20,9 @@ def l1_loss(a, b):
     assert a.size() == b.size(), 'The size of a and b is different.{}!={}'.format(a.size(), b.size())
     return F.l1_loss(a, b)
 
+def feat_loss(a, b):
+    return torch.mean(torch.stack([F.l1_loss(a_, b_) for a_,b_ in zip(a, b)]))
+
 def pred_loss(preds, labels, one_hot=False):
     if one_hot:
         max_ind = torch.argmax(preds, dim=1)
