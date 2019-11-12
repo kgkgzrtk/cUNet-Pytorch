@@ -17,9 +17,9 @@ class Conditional_UNet(nn.Module):
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)        
         self.dropout = nn.Dropout(p=0.3)
         
-        self.cbn3 = ConditionalNorm(512, num_classes=num_classes)
-        self.cbn2 = ConditionalNorm(256, num_classes=num_classes)
-        self.cbn1 = ConditionalNorm(128, num_classes=num_classes)
+        self.adain3 = AdaIN(512, num_classes=num_classes)
+        self.adain2 = AdaIN(256, num_classes=num_classes)
+        self.adain1 = AdaIN(128, num_classes=num_classes)
 
         self.dconv_up3 = double_conv(256 + 512, 256)
         self.dconv_up2 = double_conv(128 + 256, 128)
@@ -45,21 +45,21 @@ class Conditional_UNet(nn.Module):
         
         #embedding vector to spatial vector
         
-        x = self.cbn3(x, c)
+        x = self.adain3(x, c)
         x = self.upsample(x)
         x = self.dropout(x)
         x = torch.cat([x, conv3], dim=1)
 
         x = self.dconv_up3(x)
 
-        x = self.cbn2(x, c)
+        x = self.adain2(x, c)
         x = self.upsample(x)        
         x = self.dropout(x)
         x = torch.cat([x, conv2], dim=1)       
 
         x = self.dconv_up2(x)
 
-        x = self.cbn1(x, c)
+        x = self.adain1(x, c)
         x = self.upsample(x)        
         x = self.dropout(x)
         x = torch.cat([x, conv1], dim=1)   

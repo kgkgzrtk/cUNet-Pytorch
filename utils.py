@@ -15,7 +15,7 @@ def _collate_fn(batch):
     return [data, target]
 
 def get_class_id_from_string(string):
-    s_li = ['sunny','cloudy', 'rain', 'snow', 'foggy', 'z-other']
+    s_li = ['sunny','cloudy', 'rain', 'snow', 'foggy'] 
     if not string in s_li: raise
     else: return s_li.index(string)
 
@@ -35,6 +35,29 @@ class ConditionalNorm(nn.Module):
         gamma = gamma.unsqueeze(2).unsqueeze(3)
         beta = beta.unsqueeze(2).unsqueeze(3)
         out = gamma * out + beta
+        return out
+
+class AdaIN(nn.Module):
+    def __init__(self, in_channel, num_classes, eps=1e-5):
+        super().__init__()
+        self.num_classes = num_classes
+        self.eps= eps
+        self.l = nn.Linear(num_classes, 512)
+
+    def c_norm(x, bs, ch):
+        x_var = x.var(dim=2) + self.eps
+        x_std = x_var.sqrt().view(bs, ch, 1, 1)
+        x_mean = x.mean(dim=2).view(bs, ch, 1, 1)
+        return x_std, x_mean
+
+    def forward(self, x, y):
+        assert x.size(0)==y.size(0)
+        size = x.size()
+        bs, ch = size[:2]
+        y_ = self.l(y).view(bs, ch, -1)
+        x_std, x_mean = c_norm(x, bs, ch)
+        y_std, y_mean = c_norm(y_, bs, ch)
+        out = ((x - x_mean) / x_std) * y_std + y_mean
         return out
 
 def double_conv(in_channels, out_channels):

@@ -66,13 +66,13 @@ train_loader = torch.utils.data.DataLoader(
         train_set, 
         sampler=ImbalancedDatasetSampler(train_set),
         batch_size=args.batch_size, 
-        num_workers=2)
+        num_workers=8)
 
 test_loader = torch.utils.data.DataLoader(
         train_set, 
         sampler=ImbalancedDatasetSampler(test_set),
         batch_size=args.batch_size, 
-        num_workers=2)
+        num_workers=8)
 
 num_classes = len(train_set.classes)
 
