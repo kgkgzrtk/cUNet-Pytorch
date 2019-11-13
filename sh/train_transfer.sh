@@ -1,6 +1,7 @@
 #!/bin/bash
 NAME=${1:-cUNet}
 GPU=${2:-0}
+
 pipenv run python train.py\
     --gpu $GPU\
     --name $NAME\

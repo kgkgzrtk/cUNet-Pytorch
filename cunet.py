@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils import ConditionalNorm, double_conv
+from utils import AdaIN, double_conv
 
 
 class Conditional_UNet(nn.Module):

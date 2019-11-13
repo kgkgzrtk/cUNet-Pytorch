@@ -42,22 +42,27 @@ class AdaIN(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         self.eps= eps
-        self.l = nn.Linear(num_classes, 512)
+        self.l = nn.Linear(num_classes, in_channel*4)
+        self.emb = nn.Embedding(num_classes, num_classes)
 
-    def c_norm(x, bs, ch):
-        x_var = x.var(dim=2) + self.eps
+    def c_norm(self, x, bs, ch):
+        assert isinstance(x, torch.cuda.FloatTensor)
+        x_var = x.var(dim=-1) + self.eps
         x_std = x_var.sqrt().view(bs, ch, 1, 1)
-        x_mean = x.mean(dim=2).view(bs, ch, 1, 1)
+        x_mean = x.mean(dim=-1).view(bs, ch, 1, 1)
         return x_std, x_mean
 
     def forward(self, x, y):
         assert x.size(0)==y.size(0)
         size = x.size()
         bs, ch = size[:2]
+        x_ = x.view(bs, ch, -1)
+        if len(y.size())==1:
+            y = self.emb(y)
         y_ = self.l(y).view(bs, ch, -1)
-        x_std, x_mean = c_norm(x, bs, ch)
-        y_std, y_mean = c_norm(y_, bs, ch)
-        out = ((x - x_mean) / x_std) * y_std + y_mean
+        x_std, x_mean = self.c_norm(x_, bs, ch)
+        y_std, y_mean = self.c_norm(y_, bs, ch)
+        out = ((x - x_mean.expand(size)) / x_std.expand(size)) * y_std.expand(size) + y_mean.expand(size)
         return out
 
 def double_conv(in_channels, out_channels):

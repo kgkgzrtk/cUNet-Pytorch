@@ -2,6 +2,25 @@ import argparse
 import pickle
 import os
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--image_root', type=str, default='/mnt/fs2/2018/matsuzaki/dataset_fromnitta/Image/')
+parser.add_argument('--name', type=str, default='cUNet')
+parser.add_argument('--gpu', type=str, default='0')
+parser.add_argument('--save_dir', type=str, default='cp')
+parser.add_argument('--out_dir', type=str, default='results')
+parser.add_argument('--pkl_path', type=str, default='data_pkl/sepalated_mini_data.pkl')
+parser.add_argument('--classifier_path', type=str, default='cp/classifier/resnet101_95.pt')
+parser.add_argument('--input_size', type=int, default=224)
+parser.add_argument('--lr', type=float, default=1e-4)
+parser.add_argument('--num_epoch', type=int, default=100)
+parser.add_argument('--batch_size', type=int, default=16)
+parser.add_argument('--num_workers', type=int, default=1)
+args = parser.parse_args()
+
+# GPU Setting
+os.environ['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
+os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+
 import numpy as np
 import pandas as pd
 from PIL import Image
@@ -22,19 +41,6 @@ from cunet import Conditional_UNet
 from disc import SNDisc
 from sampler import ImbalancedDatasetSampler
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--image_root', type=str, default='/mnt/fs2/2018/matsuzaki/dataset_fromnitta/Image/')
-parser.add_argument('--name', type=str, default='cUNet')
-parser.add_argument('--gpu', type=str, default='0')
-parser.add_argument('--save_dir', type=str, default='cp')
-parser.add_argument('--out_dir', type=str, default='results')
-parser.add_argument('--pkl_path', type=str, default='data_pkl/sepalated_mini_data.pkl')
-parser.add_argument('--classifier_path', type=str, default='cp/classifier/resnet101_95.pt')
-parser.add_argument('--input_size', type=int, default=224)
-parser.add_argument('--lr', type=float, default=1e-4)
-parser.add_argument('--num_epoch', type=int, default=100)
-parser.add_argument('--batch_size', type=int, default=16)
-parser.add_argument('--num_workers', type=int, default=1)
 
 class WeatherTransfer(object):
 
@@ -151,8 +157,8 @@ class WeatherTransfer(object):
         #g_loss_l1 = feat_loss(real_feat, fake_feat)
         g_loss_w = pred_loss(fake_c_out.detach(), labels)   # Weather prediction
 
-        #g_loss = g_loss_adv + self.shift_lmda(g_loss_l1, g_loss_w)
-        g_loss = g_loss_adv + 10.*g_loss_l1 +  g_loss_w
+        g_loss = g_loss_adv + self.shift_lmda(g_loss_l1, g_loss_w)
+        #g_loss = g_loss_adv + g_loss_l1 #+  g_loss_w
         
         g_loss.backward()
         self.g_opt.step()
@@ -286,7 +292,5 @@ class WeatherTransfer(object):
         print('Done: training')
 
 if __name__=='__main__':
-    args = parser.parse_args()
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     wt = WeatherTransfer(args)
     wt.train()
