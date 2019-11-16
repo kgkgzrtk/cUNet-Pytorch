@@ -12,6 +12,7 @@ parser.add_argument('--pkl_path', type=str, default='data_pkl/sepalated_mini_dat
 parser.add_argument('--classifier_path', type=str, default='cp/classifier/resnet101_95.pt')
 parser.add_argument('--input_size', type=int, default=224)
 parser.add_argument('--lr', type=float, default=1e-4)
+parser.add_argument('--lmda', type=float, default=None)
 parser.add_argument('--num_epoch', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--num_workers', type=int, default=1)
@@ -139,7 +140,7 @@ class WeatherTransfer(object):
 
         #for real
         real_c_out = self.classifier(images)
-        pred_labels = torch.argmax(real_c_out.detach(), dim=1)
+        pred_labels = torch.argmax(real_c_out, dim=1)
         real_res = self.discriminator(images, pred_labels)
         real_d_out = real_res[0]
         real_feat = real_res[3]
@@ -155,8 +156,7 @@ class WeatherTransfer(object):
         g_loss_adv = gen_hinge(fake_d_out)       # Adversarial loss
         g_loss_l1 = l1_loss(fake_out, images)
         #g_loss_l1 = feat_loss(real_feat, fake_feat)
-        g_loss_w = pred_loss(fake_c_out.detach(), labels)   # Weather prediction
-
+        g_loss_w = pred_loss(fake_c_out, labels)   # Weather prediction
         g_loss = g_loss_adv + self.shift_lmda(g_loss_l1, g_loss_w)
         #g_loss = g_loss_adv + g_loss_l1 #+  g_loss_w
         
@@ -263,7 +263,10 @@ class WeatherTransfer(object):
                 self.global_step += 1
 
                 tqdm_iter.set_description('Training [ {} step ]'.format(self.global_step))
-                self.lmda = self.global_step/self.all_step
+                if args.lmda:
+                    self.lmda = args.lmda
+                else:
+                    self.lmda = self.global_step/self.all_step
 
                 # Inputs
                 images, _ = (d.to('cuda') for d in data)

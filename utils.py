@@ -1,9 +1,10 @@
 import os
 
-from PIL import Image
+import pandas as pd
 import torch
 import torch.nn as nn
 
+from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.datasets import DatasetFolder
 from torchvision.datasets.folder import default_loader
@@ -42,7 +43,8 @@ class AdaIN(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         self.eps= eps
-        self.l = nn.Linear(num_classes, in_channel*4)
+        #bias is good :)
+        self.l = nn.Linear(num_classes, in_channel*4, bias=True)
         self.emb = nn.Embedding(num_classes, num_classes)
 
     def c_norm(self, x, bs, ch):
@@ -72,6 +74,27 @@ def double_conv(in_channels, out_channels):
         nn.Conv2d(out_channels, out_channels, 3, padding=1),
         nn.ReLU(inplace=True)
     )
+
+class FlickrDataLoader(Dataset):
+    def __init__(self, image_root, df, columns, transform=None):
+        #init
+        self.root = image_root
+        self.photo_id = df.photo.to_list()
+        self.conditions = df.loc[:, colmuns]
+        self.num_classes = len(colmuns)
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx):
+        image = Image.open(os.path.join(self.root, self.paths[idx], '.jpg'))
+        image = image.convert('RGB')
+        target = self.conditions.loc[idx].tolist()
+        if self.transform:
+            image = self.transform(image)
+        return image, target
+    
 
 class ImageLoader(Dataset):
     def __init__(self, paths, transform=None):
