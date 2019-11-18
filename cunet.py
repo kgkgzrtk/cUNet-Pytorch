@@ -30,7 +30,7 @@ class Conditional_UNet(nn.Module):
 
         
         
-    def forward(self, x, c):
+    def forward(self, x, c, c_=None):
 
         conv1 = self.dconv_down1(x)
         x = self.maxpool(conv1)
@@ -45,21 +45,21 @@ class Conditional_UNet(nn.Module):
         
         #embedding vector to spatial vector
         
-        x = self.adain3(x, c)
+        x = self.adain3(x, c, c_)
         x = self.upsample(x)
         x = self.dropout(x)
         x = torch.cat([x, conv3], dim=1)
 
         x = self.dconv_up3(x)
 
-        x = self.adain2(x, c)
+        x = self.adain2(x, c, c_)
         x = self.upsample(x)        
         x = self.dropout(x)
         x = torch.cat([x, conv2], dim=1)       
 
         x = self.dconv_up2(x)
 
-        x = self.adain1(x, c)
+        x = self.adain1(x, c, c_)
         x = self.upsample(x)        
         x = self.dropout(x)
         x = torch.cat([x, conv1], dim=1)   

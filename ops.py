@@ -47,7 +47,6 @@ def vector_to_one_hot(vec):
     one_hot = torch.zeros_like(vec)
     one_hot.scatter_(0, arg, 1).float()
     return one_hot
-    
 
 def get_rand_labels(num_classes, batch_size, one_hot=False):
     label = torch.randint(num_classes, (batch_size,), dtype=torch.long)
