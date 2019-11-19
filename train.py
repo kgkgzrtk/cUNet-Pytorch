@@ -1,8 +1,5 @@
 import argparse
-import pickle
-import os
-
-parser = argparse.ArgumentParser()
+import pickle import os parser = argparse.ArgumentParser()
 parser.add_argument('--image_root', type=str, default='/mnt/fs2/2018/matsuzaki/dataset_fromnitta/Image/')
 parser.add_argument('--name', type=str, default='cUNet')
 parser.add_argument('--gpu', type=str, default='0')

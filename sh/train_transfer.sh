@@ -7,8 +7,8 @@ pipenv run python train.py\
     --name $NAME\
     --pkl_path "/mnt/data2/matsuzaki/repo/data/sepalated_data.pkl"\
     --classifier_path "cp/classifier/res_aug_5_cls/resnet101_95.pt"\
-    --lr 1e-5\
-    --num_epoch 100\
+    --lr 1e-4\
+    --num_epoch 20\
     --batch_size 16\
     --input_size 224\
     --num_workers 8\

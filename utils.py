@@ -101,22 +101,20 @@ class FlickrDataLoader(Dataset):
     def __len__(self):
         return len(self.paths)
     
-    def image_load_fn(self, idx):
+    def get_class(self. idx):
+        return df.condition.loc[idx]
+
+    def get_condition(self, idx):
+        c = self.conditions.loc[idx].to_list()
+        c_tensor = torch.from_numpy(c).float()
+        return c_tensor
+
+    def __getitem__(self, idx):
         image = Image.open(os.path.join(self.root, self.paths[idx], '.jpg'))
         image = image.convert('rgb')
         if self.transform:
             image = self.transform(image)
-        return image
-
-    def c_load_fn(self, idx):
-        return self.conditions.loc[idx].to_list()
-
-    def get_class(self, idx):
-
-    def __getitem__(self, idx):
-        image = self.image_load_fn(idx)
-        target = self.c_load_fn(idx)
-
+        target = self.get_condition[idx]
         return image, target
     
 

@@ -46,6 +46,8 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
             return dataset.imgs[idx][1]
         elif dataset_type is ImageLoader:
             return dataset.get_class(idx)
+        elif dataset_type is FlickrDataLoader:
+            return dataset.get_class(idx)
         else:
             raise NotImplementedError
                 
