@@ -101,7 +101,7 @@ class FlickrDataLoader(Dataset):
     def __len__(self):
         return len(self.paths)
     
-    def get_class(self. idx):
+    def get_class(self, idx):
         return df.condition.loc[idx]
 
     def get_condition(self, idx):

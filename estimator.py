@@ -35,7 +35,7 @@ def precision(outputs, labels):
 
 #load data
 with open(args.pkl_path, 'rb') as f:
-    df = pd.load_pickle(f)
+    df = pd.read_pickle(f)
     print('{} data were loaded'.format(len(df)))
 
 train_transform = transforms.Compose([
