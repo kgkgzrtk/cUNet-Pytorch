@@ -12,7 +12,7 @@ import torchvision as tv
 import torchvision.transforms as transforms
 import torchvision.models as models
 
-from utils import ImageLoader
+from utils import ImageLoader, FlickrDataLoader
 from sampler import ImbalancedDatasetSampler
 
 parser = argparse.ArgumentParser()
@@ -34,9 +34,8 @@ def precision(outputs, labels):
     return torch.eq(a, b).float().mean()
 
 #load data
-with open(args.pkl_path, 'rb') as f:
-    df = pd.read_pickle(f)
-    print('{} data were loaded'.format(len(df)))
+df = pd.read_pickle(args.pkl_path)
+print('{} data were loaded'.format(len(df)))
 
 train_transform = transforms.Compose([
     transforms.RandomRotation(10),
@@ -59,6 +58,7 @@ test_transform = transforms.Compose([
 transform = {'train': train_transform, 'test': test_transform}
 train_data_rate = 0.7
 pivot = int(len(df) * train_data_rate)
+df_shuffle = df.sample(frac=1)
 df_sep = {'train': df_shuffle[:pivot], 'test': df_shuffle[pivot:]}
 cols = ['clouds', 'temp', 'humidity', 'pressure', 'windspeed', 'rain']
 loader = lambda s: FlickrDataLoader(args.image_root, df_sep[s], cols, transform[s])

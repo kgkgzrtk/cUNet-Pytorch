@@ -92,17 +92,20 @@ class FlickrDataLoader(Dataset):
         #init
         self.root = image_root
         self.df = df
+        self.columns = columns
         self.photo_id = df.photo.to_list()
-        df_ = df.loc[:, colmuns]
+        df_ = df.loc[:, columns]
         self.conditions = (df_ - df_.mean())/df_.std()
-        self.num_classes = len(colmuns)
+        self.num_classes = len(columns)
         self.transform = transform
 
     def __len__(self):
-        return len(self.paths)
+        return len(self.df)
     
     def get_class(self, idx):
-        return df.condition.loc[idx]
+        string = self.df['condition'].iloc[idx]
+        id = list(self.df['condition'].unique()).index(string)
+        return id
 
     def get_condition(self, idx):
         c = self.conditions.loc[idx].to_list()
