@@ -30,6 +30,8 @@ parser.add_argument('--num_workers', type=int, default=4)
 
 args = parser.parse_args()
 
+comment = '_lr-{}_bs-{}_ne-{}_x{}_name-{}'.format(args.lr, args.batch_size, args.num_epoch, args.input_size, args.name)
+writer = SummaryWriter(comment=comment)
 
 #load data
 df = pd.read_pickle(args.pkl_path)
@@ -84,8 +86,6 @@ model = models.resnet101(pretrained=False, num_classes=num_classes)
 model.cuda()
 
 #train setting 
-comment = '_lr-{}_bs-{}_ne-{}_x{}_name-{}'.format(args.lr, args.batch_size, args.num_epoch, args.input_size, args.name)
-writer = SummaryWriter(comment=comment)
 opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
 criterion = nn.MSELoss()
 eval_per_epoch = 1
