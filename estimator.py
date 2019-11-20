@@ -23,15 +23,10 @@ parser.add_argument('--input_size', type=int, default=224)
 parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--num_epoch', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=16)
+parser.add_argument('--num_workers', type=int, default=4)
 
 args = parser.parse_args()
 
-
-def precision(outputs, labels):
-    a = torch.argmax(outputs, dim=1)
-    one_hot = nn.functional.one_hot(labels, num_classes=num_classes)
-    b = torch.argmax(one_hot, dim=1)
-    return torch.eq(a, b).float().mean()
 
 #load data
 df = pd.read_pickle(args.pkl_path)
@@ -70,7 +65,7 @@ train_loader = torch.utils.data.DataLoader(
         train_set, 
         sampler=ImbalancedDatasetSampler(train_set),
         batch_size=args.batch_size, 
-        num_workers=8)
+        num_workers=args.num_workers)
 
 test_loader = torch.utils.data.DataLoader(
         train_set, 
@@ -88,7 +83,6 @@ model.cuda()
 opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
 criterion = nn.MSELoss()
 eval_per_iter = 10
-display_per_iter = 10
 save_per_epoch = 5
 tqdm_iter = trange(args.num_epoch, desc='Training', leave=True)
 for epoch in tqdm_iter:
@@ -103,13 +97,13 @@ for epoch in tqdm_iter:
         loss_li.append(loss.item())
 
         if i % eval_per_iter == eval_per_iter-1:
-            pred_li = []
+            loss_li_ = []
             for j, data_ in enumerate(test_loader, start=0):
                 inputs_, labels_ = (d.to('cuda') for d in data_)
-                predicted = model(inputs_)
-                pred = precision(predicted, labels_)
-                pred_li.append(pred.item())
-            tqdm_iter.set_description('{} iter: Training loss={:.5f} precision={:.5f}'.format(i, np.mean(loss_li), np.mean(pred_li)))
+                outputs_ = model(inputs_)
+                loss_ = criterion(outputs_, labels_)
+                loss_li_.append(loss_.item())
+            tqdm_iter.set_description('{} iter: Train loss={:.5f} Test loss={:.5f}'.format(i, np.mean(loss_li), np.mean(loss_li_)))
 
     if epoch % save_per_epoch == 0:
         out_path = os.path.join(args.save_path, 'resnet101_'+str(epoch)+'.pt')

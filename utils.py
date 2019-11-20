@@ -4,6 +4,8 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
+import numpy as np
+
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.datasets import DatasetFolder
@@ -91,33 +93,36 @@ class FlickrDataLoader(Dataset):
     def __init__(self, image_root, df, columns, transform=None):
         #init
         self.root = image_root
-        self.df = df
         self.columns = columns
-        self.photo_id = df.photo.to_list()
-        df_ = df.loc[:, columns]
+        self.photo_id = df['photo'].to_list()
+        df_ = df.loc[:, columns].fillna(0)
         self.conditions = (df_ - df_.mean())/df_.std()
+        self.labels = df['condition']
         self.num_classes = len(columns)
         self.transform = transform
+        del df, df_
 
     def __len__(self):
-        return len(self.df)
+        return len(self.photo_id)
     
     def get_class(self, idx):
-        string = self.df['condition'].iloc[idx]
-        id = list(self.df['condition'].unique()).index(string)
+        string = self.labels.iloc[idx]
+        id = list(self.labels.unique()).index(string)
+        del string
         return id
 
     def get_condition(self, idx):
-        c = self.conditions.loc[idx].to_list()
-        c_tensor = torch.from_numpy(c).float()
+        c = self.conditions.iloc[idx].to_list()
+        c_tensor = torch.from_numpy(np.array(c)).float()
+        del c
         return c_tensor
 
     def __getitem__(self, idx):
-        image = Image.open(os.path.join(self.root, self.paths[idx], '.jpg'))
-        image = image.convert('rgb')
+        image = Image.open(os.path.join(self.root, self.photo_id[idx]+'.jpg'))
+        image = image.convert('RGB')
         if self.transform:
             image = self.transform(image)
-        target = self.get_condition[idx]
+        target = self.get_condition(idx)
         return image, target
     
 
