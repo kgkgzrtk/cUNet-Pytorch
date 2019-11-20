@@ -55,6 +55,7 @@ train_data_rate = 0.7
 pivot = int(len(df) * train_data_rate)
 df_shuffle = df.sample(frac=1)
 df_sep = {'train': df_shuffle[:pivot], 'test': df_shuffle[pivot:]}
+del df, df_shuffle
 cols = ['clouds', 'temp', 'humidity', 'pressure', 'windspeed', 'rain']
 loader = lambda s: FlickrDataLoader(args.image_root, df_sep[s], cols, transform[s])
 
@@ -71,7 +72,7 @@ test_loader = torch.utils.data.DataLoader(
         train_set, 
         sampler=ImbalancedDatasetSampler(test_set),
         batch_size=args.batch_size, 
-        num_workers=8)
+        num_workers=args.num_workers)
 
 num_classes = train_set.num_classes
 
