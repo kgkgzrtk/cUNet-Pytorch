@@ -22,4 +22,4 @@ while [ ${#check[@]} -lt 1 ]; do
     check=(`ls *name-${NAME} -1d| sort -n`)
 done
 echo "Start tensorboard logdir:${check[-1]}"
-pipenv run tensorboard --logdir ${check[-1]} --port 8080 > /dev/null 2>&1
+pipenv run tensorboard --logdir ${check[-1]} --port 8080 --bind_all > /dev/null 2>&1
