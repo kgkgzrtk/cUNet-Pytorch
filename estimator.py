@@ -81,10 +81,12 @@ model = models.resnet101(pretrained=False, num_classes=num_classes)
 model.cuda()
 
 #train setting 
+writer = SummaryWriter(comment='Estimator')
 opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
 criterion = nn.MSELoss()
-eval_per_iter = 10
+eval_per_epoch = 1
 save_per_epoch = 5
+global_step = 0
 tqdm_iter = trange(args.num_epoch, desc='Training', leave=True)
 for epoch in tqdm_iter:
     loss_li = []
@@ -95,16 +97,21 @@ for epoch in tqdm_iter:
         loss = criterion(outputs, labels)
         loss.backward()
         opt.step()
+        global_step += 1
         loss_li.append(loss.item())
 
-        if i % eval_per_iter == eval_per_iter-1:
+        if epoch % eval_per_epoch == eval_per_epoch-1:
             loss_li_ = []
             for j, data_ in enumerate(test_loader, start=0):
                 inputs_, labels_ = (d.to('cuda') for d in data_)
                 outputs_ = model(inputs_)
                 loss_ = criterion(outputs_, labels_)
                 loss_li_.append(loss_.item())
-            tqdm_iter.set_description('{} iter: Train loss={:.5f} Test loss={:.5f}'.format(i, np.mean(loss_li), np.mean(loss_li_)))
+            train_loss = np.mean(loss_li)
+            test_loss = np.mean(loss_li_)
+            writer.add_scalar('mse_loss/train', train_loss, global_step)
+            writer.add_scalar('mse_loss/test', test_loss, global_step)
+            tqdm_iter.set_description('{} iter: Train loss={:.5f} Test loss={:.5f}'.format(global_step, train_loss, test_loss))
 
     if epoch % save_per_epoch == 0:
         out_path = os.path.join(args.save_path, 'resnet101_'+str(epoch)+'.pt')
