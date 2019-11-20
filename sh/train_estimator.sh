@@ -8,7 +8,7 @@ pipenv run python estimator.py\
     --save_path cp/estimator/${NAME}\
     --num_epoch 100\
     --num_worker 8\
-    --batch_size 16\
+    --batch_size 32\
     --name $NAME\
     &
 PID=$!
@@ -20,4 +20,4 @@ while [ ${#check[@]} -lt 1 ]; do
     check=(`ls *name-${NAME} -1d| sort -n`)
 done
 echo "Start tensorboard logdir:${check[-1]}"
-pipenv run tensorboard --logdir ${check[-1]} --port 8080 > /dev/null 2>&1
+pipenv run tensorboard --logdir ${check[-1]} --port 8080 --bind-all > /dev/null 2>&1
