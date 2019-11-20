@@ -12,6 +12,8 @@ import torchvision as tv
 import torchvision.transforms as transforms
 import torchvision.models as models
 
+from torch.utils.tensorboard import SummaryWriter
+
 from utils import ImageLoader, FlickrDataLoader
 from sampler import ImbalancedDatasetSampler
 
@@ -19,6 +21,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--image_root', type=str, default='')
 parser.add_argument('--pkl_path', type=str, default='')
 parser.add_argument('--save_path', type=str, default='cp')
+parser.add_argument('--name', type=str, default='noname-estimator')
 parser.add_argument('--input_size', type=int, default=224)
 parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--num_epoch', type=int, default=100)
@@ -81,7 +84,8 @@ model = models.resnet101(pretrained=False, num_classes=num_classes)
 model.cuda()
 
 #train setting 
-writer = SummaryWriter(comment='Estimator')
+comment = '_lr-{}_bs-{}_ne-{}_x{}_name-{}'.format(args.lr, args.batch_size, args.num_epoch, args.input_size, args.name)
+writer = SummaryWriter(comment=comment)
 opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
 criterion = nn.MSELoss()
 eval_per_epoch = 1

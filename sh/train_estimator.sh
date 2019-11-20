@@ -6,5 +6,18 @@ pipenv run python estimator.py\
     --pkl_path "data_pkl/flickr_offset_under05.pkl"\
     --image_root "/mnt/fs2/2019/Takamuro/db/photos_usa_2016"\
     --save_path cp/estimator/${NAME}\
+    --num_epoch 100\
     --num_worker 8\
-    --batch_size 16;
+    --batch_size 16\
+    --name $NAME\
+    &
+PID=$!
+trap "kill ${PID}" EXIT
+cd runs
+declare -a check=()
+while [ ${#check[@]} -lt 1 ]; do
+    sleep 3
+    check=(`ls *name-${NAME} -1d| sort -n`)
+done
+echo "Start tensorboard logdir:${check[-1]}"
+pipenv run tensorboard --logdir ${check[-1]} --port 8080 > /dev/null 2>&1
