@@ -14,7 +14,7 @@ from torchvision.datasets.folder import default_loader
 def _collate_fn(batch):
     data = [v[0] for v in batch]
     target = [v[1] for v in batch]
-    target = torch.LongTensor(target)
+    target = torch.FloatTensor(target)
     return [data, target]
 
 def get_class_id_from_string(string):
@@ -62,16 +62,12 @@ class AdaIN(nn.Module):
         size = x.size()
         bs, ch = size[:2]
         x_ = x.view(bs, ch, -1)
-        if len(y.size())==1:
-            y = self.emb(y)
         y_ = self.l1(y).view(bs, ch, -1)
         x_std, x_mean = self.c_norm(x_, bs, ch)
         y_std, y_mean = self.c_norm(y_, bs, ch)
 
         if z is not None:
             assert x.size(0)==z.size(0)
-            if len(z.size())==1:
-                z = self.emb(z)
             z_ = self.l1(z).view(bs, ch, -1)
             z_std, z_mean = self.c_norm(z_, bs, ch)
             out =   ((x - z_mean.expand(size)) / z_std.expand(size)) \

@@ -30,7 +30,7 @@ def pred_loss(preds, labels, one_hot=False):
         one_hot_[:, max_ind] = preds[:, max_ind]
         loss = adv_loss(one_hot_, labels)
     else:
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.MSELoss()
         loss = criterion(preds, labels)
     return loss
 
@@ -49,7 +49,7 @@ def vector_to_one_hot(vec):
     return one_hot
 
 def get_rand_labels(num_classes, batch_size, one_hot=False):
-    label = torch.randint(num_classes, (batch_size,), dtype=torch.long)
+    label = torch.FloatTensor(batch_size, num_classes).uniform_(-1, 1)
     if one_hot:
         label = F.one_hot(label, num_classes)
     return label.to('cuda')

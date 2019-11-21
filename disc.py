@@ -40,8 +40,8 @@ class SNDisc(nn.Module):
 
         self.l = utils.spectral_norm(nn.Linear(512, 1))
         init.xavier_uniform_(self.l.weight)
-
-        self.embed = utils.spectral_norm(nn.Embedding(num_classes, 512))
+ 
+        self.embed = utils.spectral_norm(nn.Linear(num_classes, 512, bias=True))
         init.xavier_uniform_(self.embed.weight)
         
     def forward(self, x, c=None):

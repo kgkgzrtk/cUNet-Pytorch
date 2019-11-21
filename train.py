@@ -1,12 +1,15 @@
 import argparse
-import pickle import os parser = argparse.ArgumentParser()
-parser.add_argument('--image_root', type=str, default='/mnt/fs2/2018/matsuzaki/dataset_fromnitta/Image/')
+import pickle
+import os
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--image_root', type=str)
 parser.add_argument('--name', type=str, default='cUNet')
 parser.add_argument('--gpu', type=str, default='0')
 parser.add_argument('--save_dir', type=str, default='cp')
 parser.add_argument('--out_dir', type=str, default='results')
-parser.add_argument('--pkl_path', type=str, default='data_pkl/sepalated_mini_data.pkl')
-parser.add_argument('--classifier_path', type=str, default='cp/classifier/resnet101_95.pt')
+parser.add_argument('--pkl_path', type=str)
+parser.add_argument('--estimator_path', type=str)
 parser.add_argument('--input_size', type=int, default=224)
 parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--lmda', type=float, default=None)
@@ -34,7 +37,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import save_image, make_grid
 
 from ops import *
-from utils import ImageLoader, _collate_fn
+from utils import ImageLoader, FlickrDataLoader, _collate_fn
 from cunet import Conditional_UNet
 from disc import SNDisc
 from sampler import ImbalancedDatasetSampler
@@ -78,16 +81,22 @@ class WeatherTransfer(object):
         ])
         self.transform = {'train': train_transform, 'test': test_transform}
         self.train_set, self.test_set = self.load_data(varbose=True)
-        self.num_classes = len(self.train_set.classes)
+        self.num_classes = self.train_set.num_classes
         self.build()
         
     def load_data(self, varbose=False):
 
-        print('Start loading a pickel file...')
-        with open(args.pkl_path, 'rb') as f:
-            sep_data = pickle.load(f)
+        print('Start loading a pickle file...')
+        df = pd.read_pickle(args.pkl_path)
+        print('loaded {} data'.format(len(df)))
 
-        loader = lambda s: ImageLoader(paths=sep_data[s], transform=self.transform[s])
+        train_data_rate = 0.7
+        pivot = int(len(df) * train_data_rate)
+        df_shuffle = df.sample(frac=1)
+        df_sep = {'train': df_shuffle[:pivot], 'test': df_shuffle[pivot:]}
+        del df, df_shuffle
+        cols = ['clouds', 'temp', 'humidity', 'pressure', 'windspeed', 'rain']
+        loader = lambda s: FlickrDataLoader(args.image_root, df_sep[s], cols, transform=self.transform[s])
         train_set = loader('train')
         test_set = loader('test')
 
@@ -101,11 +110,11 @@ class WeatherTransfer(object):
         # Models
         self.inference = Conditional_UNet(num_classes=self.num_classes)
         self.discriminator = SNDisc(num_classes=self.num_classes)
-        self.classifier = torch.load(args.classifier_path)
-        self.classifier.eval()
+        self.estimator = torch.load(args.estimator_path)
+        self.estimator.eval()
 
         #Models to CUDA
-        [i.cuda() for i in [self.inference, self.discriminator, self.classifier]]
+        [i.cuda() for i in [self.inference, self.discriminator, self.estimator]]
 
         # Optimizer
         self.g_opt = torch.optim.Adam(self.inference.parameters(), lr=args.lr, betas=(0.0, 0.9))
@@ -136,14 +145,13 @@ class WeatherTransfer(object):
         self.g_opt.zero_grad()
 
         #for real
-        real_c_out = self.classifier(images)
-        pred_labels = torch.argmax(real_c_out, dim=1)
+        pred_labels = self.estimator(images)
         real_res = self.discriminator(images, pred_labels)
         real_d_out = real_res[0]
         real_feat = real_res[3]
 
         fake_out = self.inference(images, labels)
-        fake_c_out = self.classifier(fake_out)
+        fake_c_out = self.estimator(fake_out)
         fake_res = self.discriminator(fake_out, labels)
         fake_d_out = fake_res[0]
         fake_feat = fake_res[3]
@@ -178,8 +186,8 @@ class WeatherTransfer(object):
         self.d_opt.zero_grad()
 
         #for real
-        real_c_out = self.classifier(images)
-        pred_labels = torch.argmax(real_c_out.detach(), dim=1)
+        real_c_out = self.estimator(images)
+        pred_labels = real_c_out.detach()
 
         #real_d_out_same = self.discriminator(images, labels)
         real_d_out_pred = self.discriminator(images, pred_labels)[0]
@@ -208,10 +216,10 @@ class WeatherTransfer(object):
         data_ = next(iter(self.test_loader))
         images = data_[0].to('cuda')
         for i in range(self.num_classes):
-            labels = torch.cuda.LongTensor(self.batch_size).fill_(i)
+            labels = torch.cuda.FloatTensor(self.batch_size).fill_(i)
             with torch.no_grad():
                 fake_out_ = self.inference(images, labels)
-                fake_c_out_ = self.classifier(fake_out_)
+                fake_c_out_ = self.estimator(fake_out_)
                 fake_d_out_ = self.discriminator(fake_out_, labels)[0]
 
             input_li.append(images)
@@ -268,7 +276,6 @@ class WeatherTransfer(object):
                 # Inputs
                 images, _ = (d.to('cuda') for d in data)
                 rand_labels = get_rand_labels(self.num_classes, self.batch_size)
-
                 if images.size(0)!=self.batch_size: continue
 
                 self.update_discriminator(images, rand_labels)
