@@ -213,16 +213,19 @@ class WeatherTransfer(object):
         g_loss_w_ = []
         input_li = []
         fake_out_li = []
-        data_ = next(iter(self.test_loader))
+        data_iter = iter(self.test_loader)
+        data_ = next(data_iter)
         images = data_[0].to('cuda')
-        for i in range(self.num_classes):
-            labels = torch.cuda.FloatTensor(self.batch_size).fill_(i)
+        blank = images[0].detach().fill_(0).unsqueeze(0)
+        data_ = next(data_iter)
+        ref, cond = (d.to('cuda') for d in data_)
+        for i in range(self.batch_size):
+            labels = torch.cat([cond[i]]*self.batch_size).view(-1, self.num_classes)
             with torch.no_grad():
                 fake_out_ = self.inference(images, labels)
                 fake_c_out_ = self.estimator(fake_out_)
                 fake_d_out_ = self.discriminator(fake_out_, labels)[0]
 
-            input_li.append(images)
             fake_out_li.append(fake_out_)
             g_loss_adv_.append(adv_loss(fake_d_out_, self.real).item())
             g_loss_l1_.append(l1_loss(fake_out_, images).item())
@@ -234,8 +237,11 @@ class WeatherTransfer(object):
                 'losses/g_loss_l1/test': np.mean(g_loss_l1_),
                 'losses/g_loss_w/test': np.mean(g_loss_w_),
                 }) 
+        ref_img = torch.cat([blank]+list(torch.split(ref, 1)), dim=3)
+        in_out_img = torch.cat( [images]+fake_out_li, dim=3)
+        res_img = torch.cat([ref_img, in_out_img], dim=0)
+        
 
-        res_img = torch.cat( [input_li[0]]+fake_out_li, dim=3 )
         self.image_dict.update({
             'images/test': res_img,
                 })
