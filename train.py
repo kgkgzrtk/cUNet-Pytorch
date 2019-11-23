@@ -134,6 +134,13 @@ class WeatherTransfer(object):
                 drop_last=True,
                 num_workers=args.num_workers)
 
+        self.random_loader = torch.utils.data.DataLoader(
+                self.train_set,
+                batch_size=args.batch_size,
+                shuffle=True,
+                drop_last=True,
+                num_workers=args.num_workers)
+
         self.seq_labels = get_sequential_labels(self.num_classes, args.batch_size)
         self.scalar_dict = {}
         self.image_dict = {}
@@ -206,7 +213,7 @@ class WeatherTransfer(object):
             'losses/d_loss': d_loss.item()
             })
 
-    def eval(self):
+    def evaluation(self):
         g_loss_ = []
         g_loss_adv_ = []
         g_loss_l1_ = []
@@ -216,7 +223,7 @@ class WeatherTransfer(object):
         data_iter = iter(self.test_loader)
         data_ = next(data_iter)
         images = data_[0].to('cuda')
-        blank = images[0].detach().fill_(0).unsqueeze(0)
+        blank = torch.zeros_like(images[0]).unsqueeze(0)
         data_ = next(data_iter)
         ref, cond = (d.to('cuda') for d in data_)
         for i in range(self.batch_size):
@@ -269,7 +276,7 @@ class WeatherTransfer(object):
         tqdm_iter = trange(args.num_epoch, desc='Training', leave=True)
         for epoch in tqdm_iter:
             self.epoch = epoch
-            for i, data in enumerate(self.train_loader):
+            for i, (data, rand_data) in enumerate(zip(self.train_loader, self.random_loader)):
 
                 self.global_step += 1
 
@@ -281,15 +288,16 @@ class WeatherTransfer(object):
 
                 # Inputs
                 images, _ = (d.to('cuda') for d in data)
-                rand_labels = get_rand_labels(self.num_classes, self.batch_size)
+                rand_images = rand_data[0].to('cuda')
+                rand_labels = self.estimator(rand_images).detach()
                 if images.size(0)!=self.batch_size: continue
 
                 self.update_discriminator(images, rand_labels)
                 self.update_inference(images, rand_labels)
 
                 #--- EVALUATION ---#
-                if self.global_step % eval_per_step == 0:
-                    self.eval()
+                if (self.global_step % eval_per_step == 0) or (self.global_step == 1):
+                    self.evaluation()
 
                 #--- UPDATE SUMMARY ---#
                 if self.global_step % display_per_step == 0:
