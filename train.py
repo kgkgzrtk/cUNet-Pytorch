@@ -90,7 +90,7 @@ class WeatherTransfer(object):
         df = pd.read_pickle(args.pkl_path)
         print('loaded {} data'.format(len(df)))
 
-        train_data_rate = 0.7
+        train_data_rate = 0.9
         pivot = int(len(df) * train_data_rate)
         df_shuffle = df.sample(frac=1)
         df_sep = {'train': df_shuffle[:pivot], 'test': df_shuffle[pivot:]}
@@ -167,10 +167,13 @@ class WeatherTransfer(object):
         # Calc Generator Loss
         g_loss_adv = gen_hinge(fake_d_out)       # Adversarial loss
         g_loss_l1 = l1_loss(fake_out, images)
-        #g_loss_l1 = feat_loss(real_feat, fake_feat) 
         g_loss_w = pred_loss(fake_c_out, labels)   # Weather prediction
-        g_loss = g_loss_adv + self.shift_lmda(g_loss_l1, g_loss_w)
-        #g_loss = g_loss_adv + g_loss_l1 #+  g_loss_w
+        
+        abs_loss = torch.mean(torch.abs(fake_out - images), [1, 2, 3])
+        lmda = torch.mean(torch.abs(pred_labels - labels), 1).detach()
+        loss_con = torch.mean(abs_loss/(lmda+1e-7)) # Reconstraction loss
+        
+        g_loss = g_loss_adv + loss_con + g_loss_w
         
         g_loss.backward()
         self.g_opt.step()
@@ -296,7 +299,7 @@ class WeatherTransfer(object):
                 self.update_inference(images, rand_labels)
 
                 #--- EVALUATION ---#
-                if (self.global_step % eval_per_step == 0) or (self.global_step == 1):
+                if (self.global_step % eval_per_step == 0):
                     self.evaluation()
 
                 #--- UPDATE SUMMARY ---#
