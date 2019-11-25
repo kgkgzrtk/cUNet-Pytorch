@@ -7,6 +7,7 @@ class Conditional_UNet(nn.Module):
 
     def __init__(self, num_classes):
         super().__init__()
+        #TODO initialize weight
 
         self.dconv_down1 = double_conv(3, 64)
         self.dconv_down2 = double_conv(64, 128)
@@ -30,7 +31,7 @@ class Conditional_UNet(nn.Module):
 
         
         
-    def forward(self, x, c, c_=None):
+    def forward(self, x, c):
 
         conv1 = self.dconv_down1(x)
         x = self.maxpool(conv1)
@@ -42,24 +43,23 @@ class Conditional_UNet(nn.Module):
         x = self.maxpool(conv3)   
         
         x = self.dconv_down4(x)
+        x = self.dropout(x)
         
-        #embedding vector to spatial vector
-        
-        x = self.adain3(x, c, c_)
+        x = self.adain3(x, c)
         x = self.upsample(x)
         x = self.dropout(x)
         x = torch.cat([x, conv3], dim=1)
 
         x = self.dconv_up3(x)
 
-        x = self.adain2(x, c, c_)
+        x = self.adain2(x, c)
         x = self.upsample(x)        
         x = self.dropout(x)
         x = torch.cat([x, conv2], dim=1)       
 
         x = self.dconv_up2(x)
 
-        x = self.adain1(x, c, c_)
+        x = self.adain1(x, c)
         x = self.upsample(x)        
         x = self.dropout(x)
         x = torch.cat([x, conv1], dim=1)   

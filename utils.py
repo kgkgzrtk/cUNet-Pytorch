@@ -47,7 +47,6 @@ class AdaIN(nn.Module):
         self.eps= eps
         #bias is good :)
         self.l1 = nn.Linear(num_classes, in_channel*4, bias=True)
-        self.l2 = nn.Linear(num_classes, in_channel*4, bias=True)
         self.emb = nn.Embedding(num_classes, num_classes)
 
     def c_norm(self, x, bs, ch):
@@ -57,7 +56,7 @@ class AdaIN(nn.Module):
         x_mean = x.mean(dim=-1).view(bs, ch, 1, 1)
         return x_std, x_mean
 
-    def forward(self, x, y, z=None):
+    def forward(self, x, y):
         assert x.size(0)==y.size(0)
         size = x.size()
         bs, ch = size[:2]
@@ -66,15 +65,8 @@ class AdaIN(nn.Module):
         x_std, x_mean = self.c_norm(x_, bs, ch)
         y_std, y_mean = self.c_norm(y_, bs, ch)
 
-        if z is not None:
-            assert x.size(0)==z.size(0)
-            z_ = self.l1(z).view(bs, ch, -1)
-            z_std, z_mean = self.c_norm(z_, bs, ch)
-            out =   ((x - z_mean.expand(size)) / z_std.expand(size)) \
-                    * y_std.expand(size) + y_mean.expand(size)
-        else:
-            out =   ((x - x_mean.expand(size)) / x_std.expand(size)) \
-                    * y_std.expand(size) + y_mean.expand(size)
+        out =   ((x - x_mean.expand(size)) / x_std.expand(size)) \
+                * y_std.expand(size) + y_mean.expand(size)
         return out
 
 def double_conv(in_channels, out_channels):

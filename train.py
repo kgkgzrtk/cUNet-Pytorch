@@ -117,8 +117,8 @@ class WeatherTransfer(object):
         [i.cuda() for i in [self.inference, self.discriminator, self.estimator]]
 
         # Optimizer
-        self.g_opt = torch.optim.Adam(self.inference.parameters(), lr=args.lr, betas=(0.0, 0.9))
-        self.d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=args.lr, betas=(0.0, 0.9))
+        self.g_opt = torch.optim.Adam(self.inference.parameters(), lr=args.lr, betas=(0.0, 0.9), weight_decay=args.lr/50)
+        self.d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=args.lr, betas=(0.0, 0.9), weight_decay=args.lr/50)
 
         self.train_loader = torch.utils.data.DataLoader(
                 self.train_set,
@@ -173,7 +173,7 @@ class WeatherTransfer(object):
         lmda = torch.mean(torch.abs(pred_labels - labels), 1).detach()
         loss_con = torch.mean(abs_loss/(lmda+1e-7)) # Reconstraction loss
         
-        g_loss = g_loss_adv + loss_con + g_loss_w
+        g_loss = g_loss_adv + loss_con# + g_loss_w
         
         g_loss.backward()
         self.g_opt.step()

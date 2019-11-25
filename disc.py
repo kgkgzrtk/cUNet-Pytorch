@@ -55,30 +55,3 @@ class SNDisc(nn.Module):
         if c is not None:
             out += torch.sum(e_c * x, dim=1, keepdim=True)
         return [out, c1, c2, c3, c4]
-
-class CBNDisc(nn.Module):
-    
-    def __init__(self, num_classes):
-        super().__init__()
-        self.cbn1 = ConditionalNorm(64, num_classes)
-        self.cbn2 = ConditionalNorm(128, num_classes)
-        self.cbn3 = ConditionalNorm(256, num_classes)
-        self.conv1 = double_conv(3, 64)
-        self.conv2 = double_conv(64, 128)
-        self.conv3 = double_conv(128, 256)
-        self.conv4 = double_conv(256, 512)
-        self.l = nn.Linear(512*16*16, 1)
-        
-    def forward(self, x, c):
-        x = self.conv1(x)
-        x = self.cbn1(x, c)
-        x = self.conv2(x)
-        x = self.cbn2(x, c)
-        x = self.conv3(x)
-        x = self.cbn3(x, c)
-        x = self.conv4(x)
-        x = x.view(x.shape[0], -1)
-
-
-        out = self.l(x)
-        return out
