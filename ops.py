@@ -68,5 +68,3 @@ def get_sequential_labels(num_classes, batch_size, one_hot=False):
 
 def Variable_Float(x, batch_size):
     return Variable(torch.cuda.FloatTensor(batch_size, 1).fill_(x), requires_grad=False)
-
-

@@ -153,7 +153,7 @@ class WeatherTransfer(object):
 
         #for real
         pred_labels = self.estimator(images)
-        real_res = self.discriminator(images, pred_labels)
+        real_res = self.discriminator(images, pred_labels.detach())
         real_d_out = real_res[0]
         real_feat = real_res[3]
 
@@ -173,7 +173,7 @@ class WeatherTransfer(object):
         lmda = torch.mean(torch.abs(pred_labels - labels), 1).detach()
         loss_con = torch.mean(abs_loss/(lmda+1e-7)) # Reconstraction loss
         
-        g_loss = g_loss_adv + loss_con# + g_loss_w
+        g_loss = g_loss_adv + loss_con + g_loss_w
         
         g_loss.backward()
         self.g_opt.step()

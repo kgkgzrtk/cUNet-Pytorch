@@ -5,9 +5,17 @@ from utils import AdaIN, double_conv
 
 class Conditional_UNet(nn.Module):
 
+    def init_weight(self, std=0.2):
+        for m in self.modules():
+            cn = m.__class__.__name__
+            if cn.find('Conv') != -1:
+                m.weight.data.normal_(0., std)
+            elif cn.find('Linear') != -1:
+                m.weight.data.normal_(1., std)
+                m.bias.data.fill_(0)
+
     def __init__(self, num_classes):
-        super().__init__()
-        #TODO initialize weight
+        super(Conditional_UNet, self).__init__()
 
         self.dconv_down1 = double_conv(3, 64)
         self.dconv_down2 = double_conv(64, 128)
@@ -28,8 +36,7 @@ class Conditional_UNet(nn.Module):
         
         self.conv_last = nn.Conv2d(64, 3, 1)
         self.activation = nn.Tanh()
-
-        
+        self.init_weight() 
         
     def forward(self, x, c):
 
