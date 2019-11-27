@@ -69,6 +69,19 @@ class AdaIN(nn.Module):
                 * y_std.expand(size) + y_mean.expand(size)
         return out
 
+class HalfDropout(nn.Module):
+    def __init__(self, p=0.3):
+        super(HalfDropout, self).__init__()
+        self.dropout = nn.Dropout(p=p)
+
+    def forward(self, x):
+        ch = x.size(1)
+        a = x[:, :ch//2]
+        a = self.dropout(a)
+        b = x[:, ch//2:]
+        out = torch.cat([a,b], dim=1)
+        return out
+
 def double_conv(in_channels, out_channels):
     return nn.Sequential(
         nn.Conv2d(in_channels, out_channels, 3, padding=1),

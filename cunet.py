@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from utils import AdaIN, double_conv
+from utils import AdaIN, double_conv, HalfDropout
 
 
 class Conditional_UNet(nn.Module):
@@ -25,6 +25,7 @@ class Conditional_UNet(nn.Module):
         self.maxpool = nn.MaxPool2d(2)
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)        
         self.dropout = nn.Dropout(p=0.3)
+        #self.dropout_half = HalfDropout(p=0.3)
         
         self.adain3 = AdaIN(512, num_classes=num_classes)
         self.adain2 = AdaIN(256, num_classes=num_classes)
@@ -36,7 +37,7 @@ class Conditional_UNet(nn.Module):
         
         self.conv_last = nn.Conv2d(64, 3, 1)
         self.activation = nn.Tanh()
-        self.init_weight() 
+        #self.init_weight() 
         
     def forward(self, x, c):
 
@@ -50,7 +51,9 @@ class Conditional_UNet(nn.Module):
         x = self.maxpool(conv3)   
         
         x = self.dconv_down4(x)
-        x = self.dropout(x)
+
+        #dropout
+        #x = self.dropout_half(x)
         
         x = self.adain3(x, c)
         x = self.upsample(x)
