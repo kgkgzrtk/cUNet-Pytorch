@@ -170,7 +170,7 @@ class WeatherTransfer(object):
         g_loss_w = pred_loss(fake_c_out, labels)   # Weather prediction
         
         abs_loss = torch.mean(torch.abs(fake_out - images), [1, 2, 3])
-        lmda = torch.mean(torch.abs(pred_labels - labels), 1).detach()
+        lmda, _ = torch.max(torch.abs(pred_labels.detach() - labels), 1)
         loss_con = torch.mean(abs_loss/(lmda+1e-7)) # Reconstraction loss
         
         g_loss = g_loss_adv + loss_con + g_loss_w

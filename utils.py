@@ -119,7 +119,10 @@ class FlickrDataLoader(Dataset):
         return c_tensor
 
     def __getitem__(self, idx):
-        image = Image.open(os.path.join(self.root, self.photo_id[idx]+'.jpg'))
+        try:
+            image = Image.open(os.path.join(self.root, self.photo_id[idx]+'.jpg'))
+        except:
+            return self.__getitem__(idx)
         image = image.convert('RGB')
         if self.transform:
             image = self.transform(image)
