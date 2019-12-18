@@ -5,15 +5,16 @@ GPU=${2:-0}
 pipenv run python train.py\
     --gpu $GPU\
     --name $NAME\
+    --save_dir "/mnt/fs2/2018/matsuzaki/results/cp"\
     --pkl_path "/mnt/fs2/2018/matsuzaki/results/flickr_data/add_l2norm.pkl"\
-    --image_root "/mnt/fs2/2019/Takamuro/db/photos_usa_2016"\
+    --image_root "/mnt/fs2/2019/Takamuro/db/photos_usa_2016_outdoor"\
     --estimator_path "resnet101_95.pt"\
     --lr 1e-4\
     --num_epoch 20\
     --batch_size 16\
     --input_size 224\
     --num_workers 8
-: '
+: ' -- You can unlock when you want to execute with tensorboard.
 PID=$!
 cd runs
 declare -a check=()

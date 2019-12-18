@@ -17,6 +17,7 @@ tb-nightly = "==1.14.0a20190614"
 future = "*"
 numpy = "<1.17"
 tensorflow = "*"
+glob3 = "*"
 
 [requires]
 python_version = "3.7"
