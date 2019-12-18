@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from utils import AdaIN, double_conv, HalfDropout
+from utils import AdaIN, HalfDropout, ChannelNorm
+from nets import r_double_conv, upsample_box
 
 
 class Conditional_UNet(nn.Module):
@@ -17,13 +18,15 @@ class Conditional_UNet(nn.Module):
     def __init__(self, num_classes):
         super(Conditional_UNet, self).__init__()
 
-        self.dconv_down1 = double_conv(3, 64)
-        self.dconv_down2 = double_conv(64, 128)
-        self.dconv_down3 = double_conv(128, 256)
-        self.dconv_down4 = double_conv(256, 512)        
+        self.dconv_down1 = r_double_conv(3, 64)
+        self.dconv_down2 = r_double_conv(64, 128)
+        self.dconv_down3 = r_double_conv(128, 256)
+        self.dconv_down4 = r_double_conv(256, 512)
+        
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.chnorm = ChannelNorm()
 
         self.maxpool = nn.MaxPool2d(2)
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)        
         self.dropout = nn.Dropout(p=0.3)
         #self.dropout_half = HalfDropout(p=0.3)
         
@@ -31,9 +34,9 @@ class Conditional_UNet(nn.Module):
         self.adain2 = AdaIN(256, num_classes=num_classes)
         self.adain1 = AdaIN(128, num_classes=num_classes)
 
-        self.dconv_up3 = double_conv(256 + 512, 256)
-        self.dconv_up2 = double_conv(128 + 256, 128)
-        self.dconv_up1 = double_conv(64 + 128, 64)
+        self.dconv_up3 = r_double_conv(256 + 512, 256)
+        self.dconv_up2 = r_double_conv(128 + 256, 128)
+        self.dconv_up1 = r_double_conv(64 + 128, 64)
         
         self.conv_last = nn.Conv2d(64, 3, 1)
         self.activation = nn.Tanh()
@@ -57,13 +60,16 @@ class Conditional_UNet(nn.Module):
         
         x = self.adain3(x, c)
         x = self.upsample(x)
+        x = self.chnorm(x)
         x = self.dropout(x)
+        x.size
         x = torch.cat([x, conv3], dim=1)
 
         x = self.dconv_up3(x)
 
         x = self.adain2(x, c)
         x = self.upsample(x)        
+        x = self.chnorm(x)
         x = self.dropout(x)
         x = torch.cat([x, conv2], dim=1)       
 
@@ -71,6 +77,7 @@ class Conditional_UNet(nn.Module):
 
         x = self.adain1(x, c)
         x = self.upsample(x)        
+        x = self.chnorm(x)
         x = self.dropout(x)
         x = torch.cat([x, conv1], dim=1)   
         

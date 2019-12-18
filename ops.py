@@ -54,7 +54,6 @@ def get_rand_labels(num_classes, batch_size, one_hot=False):
         label = F.one_hot(label, num_classes)
     return label.to('cuda')
 
-
 def get_sequential_labels(num_classes, batch_size, one_hot=False):
     rep = batch_size//num_classes + 1
     if one_hot:

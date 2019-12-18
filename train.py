@@ -73,11 +73,13 @@ class WeatherTransfer(object):
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
+
         test_transform = transforms.Compose([
             transforms.Resize((args.input_size,)*2),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
+
         self.transform = {'train': train_transform, 'test': test_transform}
         self.train_set, self.test_set = self.load_data(varbose=True)
         self.cols = ['clouds', 'temp', 'humidity', 'pressure', 'windspeed', 'rain']
@@ -163,6 +165,7 @@ class WeatherTransfer(object):
 
         test_data_iter = iter(self.test_loader)
         self.test_random_sample = [tuple(d.to('cuda') for d in test_data_iter.next()) for i in range(2)]
+        del test_data_iter, self.test_loader
         self.scalar_dict = {}
         self.image_dict = {}
         self.shift_lmda = lambda a,b: (1.-self.lmda)*a+self.lmda*b
