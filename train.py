@@ -195,12 +195,11 @@ class WeatherTransfer(object):
         g_loss_w = pred_loss(fake_c_out, labels)   # Weather prediction
         
         #abs_loss = torch.mean(torch.abs(fake_out - images), [1, 2, 3])
-        l2_loss = torch.mean((fake_out - images)**2, [1, 2, 3])
+        diff = torch.mean(torch.abs(fake_out - images), [1, 2, 3])
         lmda = torch.mean(torch.abs(pred_labels.detach() - labels))
-        loss_con = torch.mean(l2_loss/(lmda+1e-7)) # Reconstraction loss
-        w_adv, w_con, w_w = (10, 10, 1)
+        loss_con = torch.mean(diff/(lmda+1e-7)) # Reconstraction loss
         
-        g_loss = w_adv*g_loss_adv + w_con*loss_con + w_w*g_loss_w
+        g_loss = g_loss_adv + loss_con + g_loss_w
         
         g_loss.backward()
         self.g_opt.step()
