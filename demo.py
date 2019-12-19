@@ -37,7 +37,6 @@ from cunet import Conditional_UNet
 if __name__=='__main__':
     os.makedirs(args.output_dir, exist_ok=True)
     paths = [os.path.join(args.input_dir, fn)for fn in os.listdir(args.input_dir)]
-    print(len(paths))
     transform = transforms.Compose([
         transforms.Resize((args.input_size,)*2),
         transforms.ToTensor(),
@@ -53,7 +52,8 @@ if __name__=='__main__':
     transfer.eval()
     if args.gpu > 0:
         transfer.cuda()
-    
+
+
     bs = args.batch_size
     nf = args.num_frames
     for i, data in enumerate(loader):
@@ -64,12 +64,14 @@ if __name__=='__main__':
             feats = []
             for one_hot in torch.split(eye, 1):
                 c_batch = torch.cat([one_hot]*bs).to('cuda')
-                res = transfer(batch, c_batch)
-                feats.append(res)
-            tables.append(torch.cat(feats, 3))
-        img_arr = [transform.ToPILImage()(t) for t in tables]
+                res = transfer(batch, c_batch).detach()
+                res = (res + 1.)*127.5
+                feats.append(make_grid(res, nrow=1, normalize=True, scale_each=True))
+            tables.append(torch.cat(feats, 2))
+        img_arr = [transforms.ToPILImage()(t.cpu()).convert("RGB") for t in tables]
         img_arr[0].save(
                 os.path.join(args.output_dir, 'output{}.gif'.format(i)),
                 save_all=True,
-                append_images=img_arr[1:]
+                append_images=img_arr[1:]+img_arr[1:-1][::-1],
+                loop=0
                 )
