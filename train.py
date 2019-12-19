@@ -139,8 +139,8 @@ class WeatherTransfer(object):
         [i.cuda() for i in [self.inference, self.discriminator, self.estimator]]
 
         # Optimizer
-        self.g_opt = torch.optim.Adam(self.inference.parameters(), lr=args.lr, betas=(0.0, 0.9), weight_decay=args.lr/50)
-        self.d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=args.lr, betas=(0.0, 0.9), weight_decay=args.lr/50)
+        self.g_opt = torch.optim.Adam(self.inference.parameters(), lr=args.lr, betas=(0.0, 0.9), weight_decay=args.lr/20)
+        self.d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=args.lr, betas=(0.0, 0.9), weight_decay=args.lr/20)
 
         self.train_loader = torch.utils.data.DataLoader(
                 self.train_set,
@@ -198,8 +198,9 @@ class WeatherTransfer(object):
         l2_loss = torch.mean((fake_out - images)**2, [1, 2, 3])
         lmda = torch.mean(torch.abs(pred_labels.detach() - labels))
         loss_con = torch.mean(l2_loss/(lmda+1e-7)) # Reconstraction loss
+        w_adv, w_con, w_w = (10, 10, 1)
         
-        g_loss = g_loss_adv + loss_con + g_loss_w
+        g_loss = w_adv*g_loss_adv + w_con*loss_con + w_w*g_loss_w
         
         g_loss.backward()
         self.g_opt.step()
@@ -259,7 +260,7 @@ class WeatherTransfer(object):
             fake_out_li.append(fake_out_)
             g_loss_adv_.append(adv_loss(fake_d_out_, self.real).item())
             g_loss_l1_.append(l1_loss(fake_out_, images).item())
-            g_loss_w_.append(pred_loss(fake_c_out_, labels).item())
+            g_loss_w_.append(pred_loss(fake_c_out_, ref_labels_expand).item())
 
         #--- WRITING SUMMARY ---#
         self.scalar_dict.update({
@@ -301,18 +302,19 @@ class WeatherTransfer(object):
         for epoch in tqdm_iter:
             if epoch>0: self.epoch += 1
 
-            if self.epoch % save_per_epoch == 0:
-                out_path = os.path.join(args.save_dir, args.name, (args.name+'_e{:04d}.pt').format(self.epoch))
-                state_dict = {
-                        'inference': self.inference.state_dict(),
-                        'discriminator': self.discriminator.state_dict(),
-                        'epoch': self.epoch,
-                        'global_step': self.global_step
-                        }
-                torch.save(state_dict, out_path)
 
             for i, (data, rand_data) in enumerate(zip(self.train_loader, self.random_loader)):
                 self.global_step += 1
+
+                if self.global_step % eval_per_step == 0:
+                    out_path = os.path.join(args.save_dir, args.name, (args.name+'_e{:04d}.pt').format(self.epoch))
+                    state_dict = {
+                            'inference': self.inference.state_dict(),
+                            'discriminator': self.discriminator.state_dict(),
+                            'epoch': self.epoch,
+                            'global_step': self.global_step
+                            }
+                    torch.save(state_dict, out_path)
 
                 tqdm_iter.set_description('Training [ {} step ]'.format(self.global_step))
                 if args.lmda:

@@ -24,8 +24,6 @@ class Conditional_UNet(nn.Module):
         self.dconv_down4 = r_double_conv(256, 512)
         
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        self.bn = BatchNorm()
-
         self.maxpool = nn.MaxPool2d(2)
         self.dropout = nn.Dropout(p=0.3)
         #self.dropout_half = HalfDropout(p=0.3)
@@ -60,16 +58,13 @@ class Conditional_UNet(nn.Module):
         
         x = self.adain3(x, c)
         x = self.upsample(x)
-        x = self.bn(x)
         x = self.dropout(x)
-        x.size
         x = torch.cat([x, conv3], dim=1)
 
         x = self.dconv_up3(x)
 
         x = self.adain2(x, c)
         x = self.upsample(x)        
-        x = self.bn(x)
         x = self.dropout(x)
         x = torch.cat([x, conv2], dim=1)       
 
@@ -77,7 +72,6 @@ class Conditional_UNet(nn.Module):
 
         x = self.adain1(x, c)
         x = self.upsample(x)        
-        x = self.bn(x)
         x = self.dropout(x)
         x = torch.cat([x, conv1], dim=1)   
         
