@@ -61,7 +61,7 @@ if __name__=='__main__':
         tables = []
         for lmda in np.arange(0, 1+1/nf, 1/(nf-1)):
             eye = torch.eye(args.num_classes)*((lmda-0.5)*2)
-            feats = []
+            feats = [make_grid(batch, nrow=1, normalize=True, scale_each=True)]
             for one_hot in torch.split(eye, 1):
                 c_batch = torch.cat([one_hot]*bs).to('cuda')
                 res = transfer(batch, c_batch).detach()
@@ -73,5 +73,6 @@ if __name__=='__main__':
                 os.path.join(args.output_dir, 'output{}.gif'.format(i)),
                 save_all=True,
                 append_images=img_arr[1:]+img_arr[1:-1][::-1],
+                duration=1000//nf,
                 loop=0
                 )
