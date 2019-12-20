@@ -25,12 +25,11 @@ class AdaIN(nn.Module):
     def __init__(self, in_channel, num_classes, eps=1e-5):
         super().__init__()
         self.num_classes = num_classes
-        self.eps= eps
-        #bias is good :)
-        self.l1 = nn.Linear(num_classes, in_channel*4, bias=True)
+        self.eps = eps
+        self.l1 = nn.Linear(num_classes, in_channel*4, bias=True) #bias is good :)
         self.emb = nn.Embedding(num_classes, num_classes)
 
-    def c_norm(self, x, bs, ch, eps=1e-5):
+    def c_norm(self, x, bs, ch, eps=1e-7):
         assert isinstance(x, torch.cuda.FloatTensor)
         x_var = x.var(dim=-1) + eps
         x_std = x_var.sqrt().view(bs, ch, 1, 1)
