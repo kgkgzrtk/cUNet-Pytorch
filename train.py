@@ -139,8 +139,8 @@ class WeatherTransfer(object):
         [i.cuda() for i in [self.inference, self.discriminator, self.estimator]]
 
         # Optimizer
-        self.g_opt = torch.optim.Adam(self.inference.parameters(), lr=args.lr, betas=(0.0, 0.9), weight_decay=args.lr/20)
-        self.d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=args.lr, betas=(0.0, 0.9), weight_decay=args.lr/20)
+        self.g_opt = torch.optim.Adam(self.inference.parameters(), lr=args.lr, betas=(0.0, 0.999), weight_decay=args.lr/20)
+        self.d_opt = torch.optim.Adam(self.discriminator.parameters(), lr=args.lr, betas=(0.0, 0.999), weight_decay=args.lr/20)
 
         self.train_loader = torch.utils.data.DataLoader(
                 self.train_set,

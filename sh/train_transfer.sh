@@ -10,7 +10,7 @@ pipenv run python train.py\
     --image_root "/mnt/fs2/2019/Takamuro/db/photos_usa_2016_outdoor"\
     --estimator_path "resnet101_95.pt"\
     --lr 1e-4\
-    --num_epoch 20\
+    --num_epoch 100\
     --batch_size 16\
     --input_size 224\
     --num_workers 8
