@@ -16,6 +16,7 @@ parser.add_argument('--lmda', type=float, default=None)
 parser.add_argument('--num_epoch', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--num_workers', type=int, default=1)
+parser.add_argument('--image_only', action='store_true')
 args = parser.parse_args()
 
 # GPU Setting
@@ -81,7 +82,7 @@ class WeatherTransfer(object):
         ])
 
         self.transform = {'train': train_transform, 'test': test_transform}
-        self.train_set, self.test_set = self.load_data(varbose=True)
+        self.train_set, self.test_set = self.load_data(varbose=True, image_only=args.image_only)
         self.cols = ['clouds', 'temp', 'humidity', 'pressure', 'windspeed', 'rain']
         self.num_classes = len(self.cols)
         self.build()
@@ -149,13 +150,6 @@ class WeatherTransfer(object):
                 drop_last=True,
                 num_workers=args.num_workers)
 
-        self.test_loader = torch.utils.data.DataLoader(
-                self.test_set,
-                batch_size=args.batch_size,
-                shuffle=True,
-                drop_last=True,
-                num_workers=args.num_workers)
-
         self.random_loader = torch.utils.data.DataLoader(
                 self.train_set,
                 batch_size=args.batch_size,
@@ -163,9 +157,17 @@ class WeatherTransfer(object):
                 drop_last=True,
                 num_workers=args.num_workers)
 
-        test_data_iter = iter(self.test_loader)
-        self.test_random_sample = [tuple(d.to('cuda') for d in test_data_iter.next()) for i in range(2)]
-        del test_data_iter, self.test_loader
+        if not args.image_only:
+            self.test_loader = torch.utils.data.DataLoader(
+                    self.test_set,
+                    batch_size=args.batch_size,
+                    shuffle=True,
+                    drop_last=True,
+                    num_workers=args.num_workers)
+            test_data_iter = iter(self.test_loader)
+            self.test_random_sample = [tuple(d.to('cuda') for d in test_data_iter.next()) for i in range(2)]
+            del test_data_iter, self.test_loader
+
         self.scalar_dict = {}
         self.image_dict = {}
         self.shift_lmda = lambda a,b: (1.-self.lmda)*a+self.lmda*b
@@ -331,7 +333,7 @@ class WeatherTransfer(object):
                 self.update_inference(images, rand_labels)
 
                 #--- EVALUATION ---#
-                if (self.global_step % eval_per_step == 0):
+                if (self.global_step % eval_per_step == 0) and not args.image_only:
                     self.evaluation()
 
                 #--- UPDATE SUMMARY ---#

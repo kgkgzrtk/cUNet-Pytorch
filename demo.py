@@ -59,8 +59,9 @@ if __name__=='__main__':
     for i, data in enumerate(loader):
         batch = data[0].to('cuda')
         tables = []
-        for lmda in np.arange(0, 1+1/nf, 1/(nf-1)):
-            eye = torch.eye(args.num_classes)*((lmda-0.5)*2)
+        scale = 2
+        for theta in np.arange(-np.pi/2, np.pi/2+np.pi/nf, np.pi/(nf-1)):
+            eye = torch.eye(args.num_classes)*torch.sin(torch.tensor(theta).float())*scale
             feats = [make_grid(batch, nrow=1, normalize=True, scale_each=True)]
             for one_hot in torch.split(eye, 1):
                 c_batch = torch.cat([one_hot]*bs).to('cuda')
@@ -69,8 +70,10 @@ if __name__=='__main__':
                 feats.append(make_grid(res, nrow=1, normalize=True, scale_each=True))
             tables.append(torch.cat(feats, 2))
         img_arr = [transforms.ToPILImage()(t.cpu()).convert("RGB") for t in tables]
+        out_path = os.path.join(args.output_dir, 'output{}.gif'.format(i))
+        print('Save gif image: {}'.format(out_path))
         img_arr[0].save(
-                os.path.join(args.output_dir, 'output{}.gif'.format(i)),
+                out_path,
                 save_all=True,
                 append_images=img_arr[1:]+img_arr[1:-1][::-1],
                 duration=1000//nf,
