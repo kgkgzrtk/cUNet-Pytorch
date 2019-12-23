@@ -179,13 +179,17 @@ class WeatherTransfer(object):
         self.g_opt.zero_grad()
 
         #for real
-        pred_labels = self.estimator(images)
+        pred_labels = soft_transform(
+                self.estimator(images)
+                )
         real_res = self.discriminator(images, pred_labels.detach())
         real_d_out = real_res[0]
         real_feat = real_res[3]
 
         fake_out = self.inference(images, labels)
-        fake_c_out = self.estimator(fake_out)
+        fake_c_out = soft_transform(
+                self.estimator(fake_out)
+                )
         fake_res = self.discriminator(fake_out, labels)
         fake_d_out = fake_res[0]
         fake_feat = fake_res[3]
@@ -218,13 +222,16 @@ class WeatherTransfer(object):
             'io/train': torch.cat([images, fake_out], dim=3),
             })
 
+
     def update_discriminator(self, images, labels):
 
         #--- UPDATE(Discriminator) ---#
         self.d_opt.zero_grad()
 
         #for real
-        real_c_out = self.estimator(images)
+        real_c_out = soft_transform(
+                self.estimator(images)
+                )
         pred_labels = real_c_out.detach()
         real_d_out_pred = self.discriminator(images, pred_labels)[0]
 
@@ -326,7 +333,9 @@ class WeatherTransfer(object):
                 # Inputs
                 images, _ = (d.to('cuda') for d in data)
                 rand_images, _ = (d.to('cuda') for d in rand_data)
-                rand_labels = self.estimator(rand_images).detach()
+                rand_labels = soft_transform(
+                        self.estimator(rand_images).detach()
+                        )
                 if images.size(0)!=self.batch_size: continue
 
                 self.update_discriminator(images, rand_labels)

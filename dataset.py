@@ -20,6 +20,7 @@ def get_class_id_from_string(string):
     if not string in s_li: raise
     else: return s_li.index(string)
 
+
 class FlickrDataLoader(Dataset):
     def __init__(self, image_root, df, columns, transform=None):
         super(FlickrDataLoader, self).__init__()
@@ -36,7 +37,7 @@ class FlickrDataLoader(Dataset):
 
     def __len__(self):
         return len(self.photo_id)
-    
+
     def get_class(self, idx):
         string = self.labels.iloc[idx]
         id = list(self.labels.unique()).index(string)
@@ -59,7 +60,7 @@ class FlickrDataLoader(Dataset):
             image = self.transform(image)
         label = self.get_condition(idx)
         return image, label
-    
+
 class ImageLoader(Dataset):
     def __init__(self, paths, transform=None):
         super(ImageLoader, self).__init__()
@@ -122,3 +123,5 @@ class ImageFolder(DatasetFolder):
         if self.transform:
             image = self.transform(image)
         return image, target
+
+

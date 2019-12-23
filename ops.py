@@ -11,6 +11,9 @@ import numpy as np
 xp = np # cpu or gpu
 #if os.environ.get('CUDA_VISIBLE_DEVICES') is not None: xp = cp
 
+def soft_transform(x, std=0.05):
+    dist = torch.zeros_like(x).normal_(0, std=std)
+    return x + dist
 
 def adv_loss(a, b):
     assert a.size() == b.size(), 'The size of a and b is different.{}!={}'.format(a.size(), b.size())

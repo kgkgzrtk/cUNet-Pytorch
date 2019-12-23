@@ -12,6 +12,7 @@ parser.add_argument('--gpu', type=int)
 parser.add_argument('--input_dir', type=str)
 parser.add_argument('--output_dir', type=str, default='results')
 parser.add_argument('--cp_path', type=str)
+parser.add_argument('--estimator_path', type=str)
 parser.add_argument('--input_size', type=int, default=244)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--num_workers', type=int, default=4)
@@ -45,26 +46,35 @@ if __name__=='__main__':
     dataset = ImageLoader(paths, transform=transform)
     loader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
 
-
+    #load model
     transfer = Conditional_UNet(num_classes=args.num_classes)
     sd = torch.load(args.cp_path)
     transfer.load_state_dict(sd['inference'])
     transfer.eval()
+
+    estimator = torch.load(args.estimator_path)
+    estimator.eval()
+
     if args.gpu > 0:
         transfer.cuda()
-
+        estimator.cuda()
 
     bs = args.batch_size
     nf = args.num_frames
+    eye = torch.eye(args.num_classes)
+
     for i, data in enumerate(loader):
         batch = data[0].to('cuda')
         tables = []
-        scale = 2
+        scale = 1
         for theta in np.arange(-np.pi/2, np.pi/2+np.pi/nf, np.pi/(nf-1)):
-            eye = torch.eye(args.num_classes)*torch.sin(torch.tensor(theta).float())*scale
+            scaled_one_hot = eye*torch.sin(torch.tensor(theta).float())*scale
+            pred = estimator(batch)
             feats = [make_grid(batch, nrow=1, normalize=True, scale_each=True)]
-            for one_hot in torch.split(eye, 1):
+            for axis, one_hot in enumerate(torch.split(scaled_one_hot, 1)):
+                eye_ = torch.cat([1. - eye[axis]]*bs).to('cuda').view(-1, args.num_classes)
                 c_batch = torch.cat([one_hot]*bs).to('cuda')
+                c_batch += eye_*pred
                 res = transfer(batch, c_batch).detach()
                 res = (res + 1.)*127.5
                 feats.append(make_grid(res, nrow=1, normalize=True, scale_each=True))
