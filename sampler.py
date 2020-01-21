@@ -2,7 +2,7 @@ import torch
 import torch.utils.data
 import torchvision
 
-from utils import ImageLoader, FlickrDataLoader
+from dataset import ImageLoader, FlickrDataLoader
 
 
 class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):

@@ -187,9 +187,7 @@ class WeatherTransfer(object):
         real_feat = real_res[3]
 
         fake_out = self.inference(images, labels)
-        fake_c_out = soft_transform(
-                self.estimator(fake_out)
-                )
+        fake_c_out = self.estimator(fake_out)
         fake_res = self.discriminator(fake_out, labels)
         fake_d_out = fake_res[0]
         fake_feat = fake_res[3]

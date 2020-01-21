@@ -18,6 +18,7 @@ parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--num_workers', type=int, default=4)
 parser.add_argument('--num_classes', type=int, default=6)
 parser.add_argument('--num_frames', type=int, default=10)
+parser.add_argument('--alpha', type=int, default=2)
 
 args = parser.parse_args()
 os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
@@ -66,7 +67,7 @@ if __name__=='__main__':
     for i, data in enumerate(loader):
         batch = data[0].to('cuda')
         tables = []
-        scale = 1
+        scale = args.alpha
         for theta in np.arange(-np.pi/2, np.pi/2+np.pi/nf, np.pi/(nf-1)):
             scaled_one_hot = eye*torch.sin(torch.tensor(theta).float())*scale
             pred = estimator(batch)

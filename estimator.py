@@ -14,13 +14,14 @@ import torchvision.models as models
 
 from torch.utils.tensorboard import SummaryWriter
 
-from utils import ImageLoader, FlickrDataLoader
+from dataset import ImageLoader, FlickrDataLoader
 from sampler import ImbalancedDatasetSampler
+from ops import soft_transform
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--image_root', type=str, default='')
 parser.add_argument('--pkl_path', type=str, default='')
-parser.add_argument('--save_path', type=str, default='cp')
+parser.add_argument('--save_path', type=str, default='cp/estimator')
 parser.add_argument('--name', type=str, default='noname-estimator')
 parser.add_argument('--input_size', type=int, default=224)
 parser.add_argument('--lr', type=float, default=1e-4)
@@ -51,7 +52,7 @@ train_transform = transforms.Compose([
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 test_transform = transforms.Compose([
-    transforms.Resize(args.input_size),
+    transforms.Resize((args.input_size,)*2),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
@@ -70,13 +71,15 @@ test_set = loader('test')
 train_loader = torch.utils.data.DataLoader(
         train_set, 
         sampler=ImbalancedDatasetSampler(train_set),
+        drop_last=True,
         batch_size=args.batch_size, 
         num_workers=args.num_workers)
 
 test_loader = torch.utils.data.DataLoader(
-        train_set, 
+        test_set,
         sampler=ImbalancedDatasetSampler(test_set),
         batch_size=args.batch_size, 
+        drop_last=True,
         num_workers=args.num_workers)
 
 num_classes = train_set.num_classes
@@ -101,6 +104,7 @@ for epoch in tqdm_iter:
     loss_li = []
     for i, data in enumerate(train_loader, start=0):
         inputs, labels = (d.to('cuda') for d in data)
+        labels = soft_transform(labels)
         opt.zero_grad()
         outputs = model(inputs)
         loss = criterion(outputs, labels)
@@ -118,8 +122,8 @@ for epoch in tqdm_iter:
             loss_li_.append(loss_.item())
         train_loss = np.mean(loss_li)
         test_loss = np.mean(loss_li_)
-        writer.add_scalar('mse_loss/train', train_loss, global_step)
-        writer.add_scalar('mse_loss/test', test_loss, global_step)
+        writer.add_scalars('mse_loss', {'train': train_loss}, global_step)
+        writer.add_scalars('mse_loss', {'test': test_loss}, global_step)
 
     if epoch % save_per_epoch == 0:
         out_path = os.path.join(args.save_path, 'resnet101_'+str(epoch)+'.pt')
