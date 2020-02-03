@@ -6,9 +6,9 @@ pipenv run python train.py\
     --gpu $GPU\
     --name $NAME\
     --save_dir "/mnt/fs2/2018/matsuzaki/results/cp"\
-    --pkl_path "/mnt/fs2/2018/matsuzaki/results/flickr_data/add_l2norm.pkl"\
+    --pkl_path "/mnt/fs2/2018/matsuzaki/results/flickr_data/outdoor1100000_withweather_con_rain_less3.pkl"\
     --image_root "/mnt/fs2/2019/Takamuro/db/photos_usa_2016_outdoor"\
-    --estimator_path "resnet101_95.pt"\
+    --estimator_path "cp/estimator/out110_less3_res50_soft/resnet101_90.pt"\
     --lr 1e-4\
     --num_epoch 100\
     --batch_size 16\

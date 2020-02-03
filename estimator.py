@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from dataset import ImageLoader, FlickrDataLoader
 from sampler import ImbalancedDatasetSampler
-from ops import soft_transform
+from ops import soft_transform, l1_loss
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--image_root', type=str, default='')
@@ -28,6 +28,7 @@ parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--num_epoch', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--num_workers', type=int, default=4)
+parser.add_argument('--mode', type=str, default='P')
 
 args = parser.parse_args()
 
@@ -57,16 +58,20 @@ test_transform = transforms.Compose([
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 transform = {'train': train_transform, 'test': test_transform}
-train_data_rate = 0.7
+train_data_rate = 0.5
 pivot = int(len(df) * train_data_rate)
-df_shuffle = df.sample(frac=1)
-df_sep = {'train': df_shuffle[:pivot], 'test': df_shuffle[pivot:]}
-del df, df_shuffle
+df_sep = {'train': df[:pivot], 'test': df[pivot:]}
+del df
 cols = ['clouds', 'temp', 'humidity', 'pressure', 'windspeed', 'rain']
 loader = lambda s: FlickrDataLoader(args.image_root, df_sep[s], cols, transform[s])
 
-train_set = loader('train')
-test_set = loader('test')
+if args.mode=='P':
+    train_set = loader('train')
+    test_set = loader('test')
+elif args.mode=='E': #for evaluation
+    train_set = loader('test')
+    test_set = loader('train')
+else: raise NotImplementedError
 
 train_loader = torch.utils.data.DataLoader(
         train_set, 
@@ -78,14 +83,13 @@ train_loader = torch.utils.data.DataLoader(
 test_loader = torch.utils.data.DataLoader(
         test_set,
         sampler=ImbalancedDatasetSampler(test_set),
-        batch_size=args.batch_size, 
         drop_last=True,
+        batch_size=args.batch_size, 
         num_workers=args.num_workers)
 
 num_classes = train_set.num_classes
 
-# modify exist resnet101 model
-model = models.resnet101(pretrained=False, num_classes=num_classes)
+model = models.resnet50(pretrained=False, num_classes=num_classes)
 model.cuda()
 
 #train setting 
@@ -95,41 +99,63 @@ writer = SummaryWriter(comment=comment)
 opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-5)
 
 criterion = nn.MSELoss()
-eval_per_epoch = 1
+
+eval_per_iter = 500
 save_per_epoch = 5
 global_step = 0
 
 tqdm_iter = trange(args.num_epoch, desc='Training', leave=True)
 for epoch in tqdm_iter:
     loss_li = []
+    mse_li = []
+    diff_li = []
     for i, data in enumerate(train_loader, start=0):
         inputs, labels = (d.to('cuda') for d in data)
-        labels = soft_transform(labels)
+        soft_labels = soft_transform(labels, std=0.1)
+
+        #optimize
         opt.zero_grad()
         outputs = model(inputs)
-        loss = criterion(outputs, labels)
+        loss = criterion(outputs, soft_labels)
         loss.backward()
         opt.step()
-        global_step += 1
+        mse = criterion(outputs, labels) 
+        diff = l1_loss(outputs, labels)
         loss_li.append(loss.item())
+        mse_li.append(mse.item())
+        diff_li.append(diff.item())
 
-    if epoch % eval_per_epoch == 0:
-        loss_li_ = []
-        for j, data_ in enumerate(test_loader, start=0):
-            inputs_, labels_ = (d.to('cuda') for d in data_)
-            outputs_ = model(inputs_)
-            loss_ = criterion(outputs_, labels_)
-            loss_li_.append(loss_.item())
-        train_loss = np.mean(loss_li)
-        test_loss = np.mean(loss_li_)
-        writer.add_scalars('mse_loss', {'train': train_loss}, global_step)
-        writer.add_scalars('mse_loss', {'test': test_loss}, global_step)
+        if global_step % eval_per_iter == 0:
+            mse_li_ = []
+            diff_li_ = []
+            for j, data_ in enumerate(test_loader, start=0):
+                with torch.no_grad():
+                    inputs_, labels_ = (d.to('cuda') for d in data_)
+                    outputs_ = model(inputs_)
+                    mse_ = criterion(outputs_, labels_)
+                    diff_ = l1_loss(outputs_, labels_)
+                    mse_li_.append(mse_.item())
+                    diff_li_.append(diff_.item())
+
+            # write summary
+            train_loss = np.mean(loss_li)
+            train_mse = np.mean(mse_li)
+            train_diff = np.mean(diff_li)
+            test_mse = np.mean(mse_li_)
+            test_diff = np.mean(diff_li_)
+            writer.add_scalars('mse_loss', {'loss': train_loss, 'train': train_mse, 'test': test_mse}, global_step)
+            writer.add_scalars('l1_loss', {'train': train_diff, 'test': test_diff}, global_step)
+            loss_li = []
+            mse_li = []
+            diff_li = []
+
+        global_step += 1
 
     if epoch % save_per_epoch == 0:
-        out_path = os.path.join(args.save_path, 'resnet101_'+str(epoch)+'.pt')
+        out_path = os.path.join(args.save_path, 'resnet50_'+str(epoch)+'.pt')
         os.makedirs(args.save_path, exist_ok=True) 
         torch.save(model, out_path)
 
-    tqdm_iter.set_description('{} iter: Train loss={:.5f} Test loss={:.5f}'.format(global_step, train_loss, test_loss))
+    tqdm_iter.set_description('{} iter: Train loss={:.5f} Test loss={:.5f}'.format(global_step, train_mse, test_mse))
 
 print('Done: training')
