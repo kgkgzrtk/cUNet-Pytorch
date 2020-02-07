@@ -133,7 +133,16 @@ class WeatherTransfer(object):
             print('Initialize training status.')
             self.epoch = 0
             self.global_step = 0
+
         self.estimator = torch.load(args.estimator_path)
+        """
+        # If you need to change input size
+        req_size = 299
+        self.estimator = nn.Sequential(
+                    nn.Upsample(scale_factor=req_size/args.input_size),
+                    self.estimator
+                )
+        """
         self.estimator.eval()
 
         #Models to CUDA
@@ -203,7 +212,9 @@ class WeatherTransfer(object):
         lmda = torch.mean(torch.abs(pred_labels.detach() - labels), 1)
         loss_con = torch.mean(diff/(lmda+1e-7)) # Reconstraction loss
 
-        g_loss = g_loss_adv + loss_con + g_loss_w
+        lmda_con, lmda_w = (1, 10)
+
+        g_loss = g_loss_adv + lmda_con * loss_con + lmda_w * g_loss_w
         
         g_loss.backward()
         self.g_opt.step()

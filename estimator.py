@@ -25,8 +25,9 @@ parser.add_argument('--save_path', type=str, default='cp/estimator')
 parser.add_argument('--name', type=str, default='noname-estimator')
 parser.add_argument('--input_size', type=int, default=224)
 parser.add_argument('--lr', type=float, default=1e-4)
+parser.add_argument('--wd', type=float, default=1e-5)
 parser.add_argument('--num_epoch', type=int, default=100)
-parser.add_argument('--batch_size', type=int, default=16)
+parser.add_argument('--batch_size', type=int, default=64)
 parser.add_argument('--num_workers', type=int, default=4)
 parser.add_argument('--mode', type=str, default='P')
 
@@ -52,11 +53,13 @@ train_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
+
 test_transform = transforms.Compose([
     transforms.Resize((args.input_size,)*2),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
+
 transform = {'train': train_transform, 'test': test_transform}
 train_data_rate = 0.5
 pivot = int(len(df) * train_data_rate)
@@ -89,18 +92,18 @@ test_loader = torch.utils.data.DataLoader(
 
 num_classes = train_set.num_classes
 
-model = models.resnet50(pretrained=False, num_classes=num_classes)
+model = models.resnet101(pretrained=False, num_classes=num_classes)
 model.cuda()
 
 #train setting 
 comment = '_lr-{}_bs-{}_ne-{}_x{}_name-{}'.format(args.lr, args.batch_size, args.num_epoch, args.input_size, args.name)
 writer = SummaryWriter(comment=comment)
 
-opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-5)
+opt = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
 
 criterion = nn.MSELoss()
 
-eval_per_iter = 500
+eval_per_iter = 100
 save_per_epoch = 5
 global_step = 0
 
@@ -111,18 +114,17 @@ for epoch in tqdm_iter:
     diff_li = []
     for i, data in enumerate(train_loader, start=0):
         inputs, labels = (d.to('cuda') for d in data)
-        soft_labels = soft_transform(labels, std=0.1)
+        #soft_labels = soft_transform(labels, std=0.1)
 
         #optimize
         opt.zero_grad()
         outputs = model(inputs)
-        loss = criterion(outputs, soft_labels)
+        loss = criterion(outputs, labels)
         loss.backward()
         opt.step()
-        mse = criterion(outputs, labels) 
-        diff = l1_loss(outputs, labels)
-        loss_li.append(loss.item())
-        mse_li.append(mse.item())
+
+        diff = l1_loss(outputs.detach(), labels)
+        mse_li.append(loss.item())
         diff_li.append(diff.item())
 
         if global_step % eval_per_iter == 0:
@@ -131,21 +133,19 @@ for epoch in tqdm_iter:
             for j, data_ in enumerate(test_loader, start=0):
                 with torch.no_grad():
                     inputs_, labels_ = (d.to('cuda') for d in data_)
-                    outputs_ = model(inputs_)
+                    outputs_ = model(inputs_).detach()
                     mse_ = criterion(outputs_, labels_)
                     diff_ = l1_loss(outputs_, labels_)
                     mse_li_.append(mse_.item())
                     diff_li_.append(diff_.item())
 
             # write summary
-            train_loss = np.mean(loss_li)
             train_mse = np.mean(mse_li)
             train_diff = np.mean(diff_li)
             test_mse = np.mean(mse_li_)
             test_diff = np.mean(diff_li_)
-            writer.add_scalars('mse_loss', {'loss': train_loss, 'train': train_mse, 'test': test_mse}, global_step)
+            writer.add_scalars('mse_loss', {'train': train_mse, 'test': test_mse}, global_step)
             writer.add_scalars('l1_loss', {'train': train_diff, 'test': test_diff}, global_step)
-            loss_li = []
             mse_li = []
             diff_li = []
 

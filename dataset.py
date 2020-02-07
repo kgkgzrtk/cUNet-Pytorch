@@ -30,7 +30,7 @@ class FlickrDataLoader(Dataset):
         self.photo_id = df['photo'].to_list()
         df_ = df.loc[:, columns].fillna(0)
         self.conditions = (df_ - df_.mean())/df_.std()
-        self.labels = df['condition']
+        self.labels = df['condition2']
         self.num_classes = len(columns)
         self.transform = transform
         del df, df_
