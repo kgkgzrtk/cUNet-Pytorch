@@ -61,20 +61,21 @@ test_transform = transforms.Compose([
 ])
 
 transform = {'train': train_transform, 'test': test_transform}
+
 train_data_rate = 0.5
 pivot = int(len(df) * train_data_rate)
-df_sep = {'train': df[:pivot], 'test': df[pivot:]}
+if args.mode=='P':
+    df_sep = {'train': df[:pivot], 'test': df[pivot:]}
+elif args.mode=='E': #for evaluation
+    df_sep = {'train': df[pivot:], 'test': df[:pivot]}
+else: raise NotImplementedError
+
 del df
 cols = ['clouds', 'temp', 'humidity', 'pressure', 'windspeed', 'rain']
 loader = lambda s: FlickrDataLoader(args.image_root, df_sep[s], cols, transform[s])
 
-if args.mode=='P':
-    train_set = loader('train')
-    test_set = loader('test')
-elif args.mode=='E': #for evaluation
-    train_set = loader('test')
-    test_set = loader('train')
-else: raise NotImplementedError
+train_set = loader('train')
+test_set = loader('test')
 
 train_loader = torch.utils.data.DataLoader(
         train_set, 

@@ -212,7 +212,7 @@ class WeatherTransfer(object):
         lmda = torch.mean(torch.abs(pred_labels.detach() - labels), 1)
         loss_con = torch.mean(diff/(lmda+1e-7)) # Reconstraction loss
 
-        lmda_con, lmda_w = (1, 10)
+        lmda_con, lmda_w = (1, 1)
 
         g_loss = g_loss_adv + lmda_con * loss_con + lmda_w * g_loss_w
         
