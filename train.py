@@ -17,6 +17,7 @@ parser.add_argument('--num_epoch', type=int, default=100)
 parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument('--num_workers', type=int, default=1)
 parser.add_argument('--image_only', action='store_true')
+parser.add_argument('--one_hot', action='store_true')
 args = parser.parse_args()
 
 # GPU Setting
@@ -39,9 +40,10 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import save_image, make_grid
 
 from ops import *
-from dataset import ImageLoader, FlickrDataLoader
+from dataset import ImageLoader, FlickrDataLoader, ClassImageLoader
 from cunet import Conditional_UNet
 from disc import SNDisc
+from utils import MakeOneHot
 
 
 class WeatherTransfer(object):
@@ -83,7 +85,10 @@ class WeatherTransfer(object):
 
         self.transform = {'train': train_transform, 'test': test_transform}
         self.train_set, self.test_set = self.load_data(varbose=True, image_only=args.image_only)
-        self.cols = ['clouds', 'temp', 'humidity', 'pressure', 'windspeed', 'rain']
+        if not args.one_hot:
+            self.cols = ['clouds', 'temp', 'humidity', 'pressure', 'windspeed', 'rain']
+        else:
+            self.cols = ['sunny','cloudy', 'rain', 'snow', 'foggy'] 
         self.num_classes = len(self.cols)
         self.build()
         
@@ -98,6 +103,10 @@ class WeatherTransfer(object):
             paths_sep = {'train': paths[:pivot], 'test': paths[pivot:]}
             loader = lambda s: ImageLoader(paths_sep[s], transform=self.transform[s])
 
+        elif args.one_hot:
+            sep_data = pd.read_pickle(args.pkl_path)
+            loader = lambda s: ClassImageLoader(paths=sep_data[s], transform=self.transform[s]) 
+
         else:
             df = pd.read_pickle(args.pkl_path)
             print('loaded {} data'.format(len(df)))
@@ -105,8 +114,8 @@ class WeatherTransfer(object):
             df_shuffle = df.sample(frac=1)
             df_sep = {'train': df_shuffle[:pivot], 'test': df_shuffle[pivot:]}
             del df, df_shuffle
-            cols = ['clouds', 'temp', 'humidity', 'pressure', 'windspeed', 'rain']
-            loader = lambda s: FlickrDataLoader(args.image_root, df_sep[s], cols, transform=self.transform[s])
+            loader = lambda s: FlickrDataLoader(args.image_root, df_sep[s], self.cols, transform=self.transform[s])
+
 
         train_set = loader('train')
         test_set = loader('test')
@@ -135,14 +144,11 @@ class WeatherTransfer(object):
             self.global_step = 0
 
         self.estimator = torch.load(args.estimator_path)
-        """
-        # If you need to change input size
-        req_size = 299
-        self.estimator = nn.Sequential(
-                    nn.Upsample(scale_factor=req_size/args.input_size),
-                    self.estimator
-                )
-        """
+        if args.one_hot:
+            self.estimator = nn.Sequential(
+                        self.estimator,
+                        nn.Softmax(dim=0)
+                    )
         self.estimator.eval()
 
         #Models to CUDA
@@ -188,9 +194,7 @@ class WeatherTransfer(object):
         self.g_opt.zero_grad()
 
         #for real
-        pred_labels = soft_transform(
-                self.estimator(images)
-                )
+        pred_labels = self.estimator(images)
         real_res = self.discriminator(images, pred_labels.detach())
         real_d_out = real_res[0]
         real_feat = real_res[3]
@@ -238,9 +242,7 @@ class WeatherTransfer(object):
         self.d_opt.zero_grad()
 
         #for real
-        real_c_out = soft_transform(
-                self.estimator(images)
-                )
+        real_c_out = self.estimator(images)
         pred_labels = real_c_out.detach()
         real_d_out_pred = self.discriminator(images, pred_labels)[0]
 
@@ -265,6 +267,11 @@ class WeatherTransfer(object):
         images, labels = self.test_random_sample[0]
         blank = torch.zeros_like(images[0]).unsqueeze(0)
         ref_images, ref_labels = self.test_random_sample[1]
+
+        if args.one_hot:
+            labels = F.one_hot(labels, self.num_classes).float()
+            ref_labels = F.one_hot(ref_labels, self.num_classes).float()
+
         for i in range(self.batch_size):
             with torch.no_grad():
                 if ref_labels is None:
@@ -309,8 +316,8 @@ class WeatherTransfer(object):
         args = self.args
 
         #train setting 
-        eval_per_step = 100
-        display_per_step = 100
+        eval_per_step = 1000
+        display_per_step = 1000
         save_per_epoch = 5
 
         self.all_step = args.num_epoch*len(self.train_set)//self.batch_size
@@ -342,9 +349,7 @@ class WeatherTransfer(object):
                 # Inputs
                 images, _ = (d.to('cuda') for d in data)
                 rand_images, _ = (d.to('cuda') for d in rand_data)
-                rand_labels = soft_transform(
-                        self.estimator(rand_images).detach()
-                        )
+                rand_labels = self.estimator(rand_images).detach()
                 if images.size(0)!=self.batch_size: continue
 
                 self.update_discriminator(images, rand_labels)

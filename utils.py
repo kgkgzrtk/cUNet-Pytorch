@@ -67,6 +67,15 @@ class BatchNorm(nn.Module):
         out = (x - x_mean.expand(size)) / x_std.expand(size)
         return out
 
+class MakeOneHot(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.num_classes = num_classes
+
+    def forward(self, x):
+        ind = torch.argmax(x)
+        return nn.functional.one_hot(ind, self.num_classes)
+
 class HalfDropout(nn.Module):
     def __init__(self, p=0.3):
         super(HalfDropout, self).__init__()

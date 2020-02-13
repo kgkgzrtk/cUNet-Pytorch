@@ -22,15 +22,18 @@ def get_class_id_from_string(string):
 
 
 class FlickrDataLoader(Dataset):
-    def __init__(self, image_root, df, columns, transform=None):
+    def __init__(self, image_root, df, columns, transform=None, class_id=None):
         super(FlickrDataLoader, self).__init__()
         #init
         self.root = image_root
         self.columns = columns
         self.photo_id = df['photo'].to_list()
+        self.class_id = class_id
         df_ = df.loc[:, columns].fillna(0)
         self.conditions = (df_ - df_.mean())/df_.std()
         self.labels = df['condition2']
+        #self.cls_li = sorted(self.labels.unique())
+        self.cls_li = ['Clear', 'Clouds', 'Rain', 'Snow', 'Mist']
         self.num_classes = len(columns)
         self.transform = transform
         del df, df_
@@ -40,12 +43,12 @@ class FlickrDataLoader(Dataset):
 
     def get_class(self, idx):
         string = self.labels.iloc[idx]
-        id = list(self.labels.unique()).index(string)
+        id = self.cls_li.index(string)
         del string
         return id
 
     def get_condition(self, idx):
-        c = self.conditions.iloc[idx].to_list()
+        c = self.conditions.iloc[idx].fillna(0).to_list()
         c_tensor = torch.from_numpy(np.array(c)).float()
         del c
         return c_tensor
@@ -59,7 +62,11 @@ class FlickrDataLoader(Dataset):
         if self.transform:
             image = self.transform(image)
         label = self.get_condition(idx)
-        return image, label
+        if self.class_id is not None:
+            cls_id = self.get_class(idx)
+            return image, label, cls_id
+        else:
+            return image, label
 
 class ImageLoader(Dataset):
     def __init__(self, paths, transform=None):

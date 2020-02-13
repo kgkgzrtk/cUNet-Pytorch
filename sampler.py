@@ -2,8 +2,7 @@ import torch
 import torch.utils.data
 import torchvision
 
-from dataset import ImageLoader, FlickrDataLoader
-
+from dataset import ImageLoader, FlickrDataLoader, ClassImageLoader
 
 class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
     """Samples elements randomly from a given list of indices for imbalanced dataset
@@ -44,9 +43,7 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
             return dataset.train_labels[idx].item()
         elif dataset_type is torchvision.datasets.ImageFolder:
             return dataset.imgs[idx][1]
-        elif dataset_type is ImageLoader:
-            return dataset.get_class(idx)
-        elif dataset_type is FlickrDataLoader:
+        elif dataset_type in [ImageLoader, FlickrDataLoader, ClassImageLoader]:
             return dataset.get_class(idx)
         else:
             raise NotImplementedError

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from utils import AdaIN, HalfDropout, BatchNorm
-from nets import r_double_conv, upsample_box
+from nets import r_double_conv
 
 
 class Conditional_UNet(nn.Module):
