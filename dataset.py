@@ -44,7 +44,6 @@ class FlickrDataLoader(Dataset):
     def get_class(self, idx):
         string = self.labels.iloc[idx]
         id = self.cls_li.index(string)
-        del string
         return id
 
     def get_condition(self, idx):
